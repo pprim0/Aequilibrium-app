@@ -1,44 +1,52 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
+import { getTodayHabits, toggleHabit } from '../store/habits';
 
-// ── Dados de exemplo ──────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────
 
-const WEEK = ['S', 'D', 'S', 'T', 'T', 'Q', 'S'];
-const WEEK_DAYS = [10, 11, 12, 13, 14, 15, 16];
-const TODAY_INDEX = 4;
+const WEEK_LABELS = ['S', 'D', 'S', 'T', 'T', 'Q', 'S'];
 
-const habits = [
-  { id: 1, emoji: '💧', name: 'Beber 2L de água', time: '08:00', freq: 'Todos os dias', streak: 6, done: true, color: colors.primaryPale },
-  { id: 2, emoji: '🍳', name: 'Cozinhar em casa', time: '12:30', freq: 'Seg–Sex', streak: 4, done: true, color: '#FEF3C7' },
-  { id: 3, emoji: '🏃', name: 'Exercício', time: '18:00', freq: '5x/semana', streak: 3, done: false, color: '#FFE8E8' },
-  { id: 4, emoji: '📚', name: 'Ler 10 minutos', time: '21:00', freq: 'Todos os dias', streak: 2, done: false, color: colors.infoPale },
-  { id: 5, emoji: '🌙', name: 'Dormir antes das 23h', time: '23:00', freq: 'Todos os dias', streak: 6, done: false, color: '#F5F0FF' },
-];
+function getWeekDays() {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Sunday
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - dayOfWeek + i);
+    return { label: WEEK_LABELS[i], day: d.getDate(), isToday: i === dayOfWeek };
+  });
+}
 
 // ── Mini componentes ──────────────────────────────────────
 
 function WeekStrip() {
+  const days = getWeekDays();
   return (
     <View style={styles.weekStrip}>
-      {WEEK_DAYS.map((day, i) => {
-        const isToday = i === TODAY_INDEX;
-        return (
-          <View key={i} style={styles.weekDay}>
-            <Text style={[styles.weekLabel, isToday && styles.weekLabelActive]}>{WEEK[i]}</Text>
-            <View style={[styles.weekCircle, isToday && styles.weekCircleActive]}>
-              <Text style={[styles.weekNum, isToday && styles.weekNumActive]}>{day}</Text>
-            </View>
-            <View style={[styles.weekDot, { backgroundColor: i < TODAY_INDEX ? colors.primary : i === TODAY_INDEX ? colors.border : 'transparent' }]} />
+      {days.map((d, i) => (
+        <View key={i} style={styles.weekDay}>
+          <Text style={[styles.weekLabel, d.isToday && styles.weekLabelActive]}>
+            {d.label}
+          </Text>
+          <View style={[styles.weekCircle, d.isToday && styles.weekCircleActive]}>
+            <Text style={[styles.weekNum, d.isToday && styles.weekNumActive]}>
+              {d.day}
+            </Text>
           </View>
-        );
-      })}
+          <View style={[
+            styles.weekDot,
+            { backgroundColor: d.isToday ? colors.border : i < days.findIndex(x => x.isToday) ? colors.primary : 'transparent' }
+          ]} />
+        </View>
+      ))}
     </View>
   );
 }
 
 function SummaryBar({ total, done }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
     <View style={styles.summaryBar}>
       <View style={styles.summaryStat}>
@@ -47,32 +55,44 @@ function SummaryBar({ total, done }) {
       </View>
       <View style={styles.summaryDivider} />
       <View style={styles.summaryStat}>
-        <Text style={[styles.summaryVal, { color: colors.warning }]}>{Math.round((done / total) * 100)}%</Text>
+        <Text style={[styles.summaryVal, { color: pct >= 60 ? colors.primary : colors.warning }]}>
+          {pct}%
+        </Text>
         <Text style={styles.summaryLabel}>Consistência</Text>
       </View>
       <View style={styles.summaryDivider} />
       <View style={styles.summaryStat}>
-        <Text style={styles.summaryVal}>🔥 6</Text>
-        <Text style={styles.summaryLabel}>Streak</Text>
+        <Text style={styles.summaryVal}>🔥 {done > 0 ? done : 0}</Text>
+        <Text style={styles.summaryLabel}>Hoje</Text>
       </View>
     </View>
   );
 }
 
 function HabitCard({ habit, onToggle }) {
+  const [pressing, setPressing] = useState(false);
+
   return (
     <TouchableOpacity
-      style={[styles.habitCard, habit.done && styles.habitCardDone]}
-      activeOpacity={0.8}
+      style={[styles.habitCard, habit.done && styles.habitCardDone, pressing && styles.habitCardPress]}
+      activeOpacity={0.85}
+      onPressIn={() => setPressing(true)}
+      onPressOut={() => setPressing(false)}
       onPress={() => onToggle(habit.id)}
     >
       <View style={[styles.habitEmoji, { backgroundColor: habit.done ? colors.primary : habit.color }]}>
         <Text style={{ fontSize: 22 }}>{habit.emoji}</Text>
       </View>
+
       <View style={styles.habitInfo}>
-        <Text style={[styles.habitName, habit.done && styles.habitNameDone]}>{habit.name}</Text>
-        <Text style={styles.habitMeta}>{habit.time} · {habit.freq}</Text>
+        <Text style={[styles.habitName, habit.done && styles.habitNameDone]}>
+          {habit.name}
+        </Text>
+        <Text style={styles.habitMeta}>
+          {habit.time} · {habit.frequency === 'daily' ? 'Todos os dias' : habit.frequency === 'weekdays' ? 'Seg–Sex' : habit.frequency}
+        </Text>
       </View>
+
       <View style={styles.habitRight}>
         <Text style={styles.habitStreak}>🔥 {habit.streak}</Text>
         <View style={[styles.habitCheck, habit.done && styles.habitCheckDone]}>
@@ -83,20 +103,60 @@ function HabitCard({ habit, onToggle }) {
   );
 }
 
+function EmptyState() {
+  return (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyIcon}>🌱</Text>
+      <Text style={styles.emptyTitle}>Ainda não tens hábitos</Text>
+      <Text style={styles.emptySub}>Cria o primeiro para começares a construir a tua rotina.</Text>
+    </View>
+  );
+}
+
 // ── Screen principal ──────────────────────────────────────
 
 export default function HabitsScreen() {
   const [tab, setTab] = useState('Hoje');
-  const [habitList, setHabitList] = useState(habits);
+  const [habits, setHabits] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const tabs = ['Hoje', 'Semana', 'Todos'];
-  const done = habitList.filter(h => h.done).length;
 
-  function toggleHabit(id) {
-    setHabitList(prev =>
-      prev.map(h => h.id === id ? { ...h, done: !h.done } : h)
-    );
+  // Recarrega sempre que o ecrã fica em foco
+  useFocusEffect(
+    useCallback(() => {
+      loadHabits();
+    }, [])
+  );
+
+  async function loadHabits() {
+    try {
+      setLoading(true);
+      const data = await getTodayHabits();
+      setHabits(data);
+    } catch (e) {
+      console.error('Erro ao carregar hábitos:', e);
+    } finally {
+      setLoading(false);
+    }
   }
+
+  async function handleToggle(id) {
+    // Atualiza UI imediatamente (optimistic update)
+    setHabits(prev =>
+      prev.map(h => h.id === id ? { ...h, done: !h.done, streak: h.done ? h.streak - 1 : h.streak + 1 } : h)
+    );
+    // Persiste na base de dados
+    try {
+      await toggleHabit(id);
+    } catch (e) {
+      console.error('Erro ao atualizar hábito:', e);
+      // Reverte se falhar
+      loadHabits();
+    }
+  }
+
+  const done = habits.filter(h => h.done).length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -122,30 +182,40 @@ export default function HabitsScreen() {
         ))}
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Summary */}
-        <SummaryBar total={habitList.length} done={done} />
-
-        {/* Habit list */}
-        <View style={styles.habitList}>
-          {habitList.map(h => (
-            <HabitCard key={h.id} habit={h} onToggle={toggleHabit} />
-          ))}
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={colors.primary} />
         </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Summary */}
+          <SummaryBar total={habits.length} done={done} />
 
-        {/* Add habit */}
-        <TouchableOpacity style={styles.addHabitBtn} activeOpacity={0.7}>
-          <View style={styles.addHabitIcon}>
-            <Text style={{ color: colors.primary, fontSize: 20 }}>+</Text>
-          </View>
-          <Text style={styles.addHabitText}>Criar novo hábito</Text>
-        </TouchableOpacity>
+          {/* Habit list ou empty state */}
+          {habits.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <View style={styles.habitList}>
+              {habits.map(h => (
+                <HabitCard key={h.id} habit={h} onToggle={handleToggle} />
+              ))}
+            </View>
+          )}
 
-      </ScrollView>
+          {/* Add habit */}
+          <TouchableOpacity style={styles.addHabitBtn} activeOpacity={0.7}>
+            <View style={styles.addHabitIcon}>
+              <Text style={{ color: colors.primary, fontSize: 20 }}>+</Text>
+            </View>
+            <Text style={styles.addHabitText}>Criar novo hábito</Text>
+          </TouchableOpacity>
+
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -180,6 +250,9 @@ const styles = StyleSheet.create({
   tabLabelActive: { color: colors.primary },
   tabUnderline: { height: 2, backgroundColor: colors.primary, borderRadius: 2, width: '100%', marginTop: -2 },
 
+  // Loading
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
   // Summary
   summaryBar: { backgroundColor: colors.card, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', padding: spacing.md, ...shadow.sm },
   summaryStat: { flex: 1, alignItems: 'center' },
@@ -190,7 +263,8 @@ const styles = StyleSheet.create({
   // Habit card
   habitList: { gap: 8 },
   habitCard: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, ...shadow.sm },
-  habitCardDone: { opacity: 0.7 },
+  habitCardDone: { opacity: 0.65 },
+  habitCardPress: { transform: [{ scale: 0.98 }] },
   habitEmoji: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   habitInfo: { flex: 1 },
   habitName: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.text },
@@ -198,11 +272,17 @@ const styles = StyleSheet.create({
   habitMeta: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, color: colors.text3, marginTop: 2 },
   habitRight: { alignItems: 'center', gap: 6 },
   habitStreak: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 12, color: colors.warning },
-  habitCheck: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  habitCheck: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   habitCheckDone: { backgroundColor: colors.primary, borderColor: colors.primary },
 
   // Add habit
   addHabitBtn: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed' },
   addHabitIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primaryPale, alignItems: 'center', justifyContent: 'center' },
   addHabitText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.primary },
+
+  // Empty state
+  emptyState: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  emptyIcon: { fontSize: 52, marginBottom: 8 },
+  emptyTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 18, color: colors.text },
+  emptySub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 14, color: colors.text3, textAlign: 'center', maxWidth: 260, lineHeight: 21 },
 });
