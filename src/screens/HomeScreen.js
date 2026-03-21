@@ -1,11 +1,13 @@
-import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useCallback, useState, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
 import { getTodayHabits, toggleHabit } from '../store/habits';
 import { getMonthSummary, getTransactions, getBudget } from '../store/finance';
 import { getGoals } from '../store/goals';
+import { useFadeInUp } from '../utils/animations';
+import AnimatedProgressBar from '../components/AnimatedProgressBar';
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -43,16 +45,6 @@ function Card({ children, style }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-function ProgressBar({ percent, color = colors.primary, height = 8 }) {
-  const safe = Math.min(Math.max(percent, 0), 100);
-  const barColor = percent >= 90 ? colors.error : percent >= 70 ? colors.warning : color;
-  return (
-    <View style={[styles.progressTrack, { height }]}>
-      <View style={[styles.progressFill, { width: `${safe}%`, backgroundColor: barColor, height }]} />
-    </View>
-  );
-}
-
 function Badge({ label, color = colors.primary, bg = colors.primaryPale }) {
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
@@ -75,26 +67,38 @@ function SectionHeader({ title, action, onPress }) {
 }
 
 function HabitRow({ habit, onToggle }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  function handlePress() {
+    Animated.sequence([
+      Animated.spring(scaleAnim, { toValue: 0.95, speed: 50, bounciness: 0, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, speed: 20, bounciness: 12, useNativeDriver: true }),
+    ]).start();
+    onToggle(habit.id);
+  }
+
   return (
-    <TouchableOpacity
-      style={styles.habitRow}
-      onPress={() => onToggle(habit.id)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.habitCheck, habit.done && styles.habitCheckDone]}>
-        {habit.done && <Text style={{ color: '#fff', fontSize: 11 }}>✓</Text>}
-      </View>
-      <View style={[styles.emojiBox, { backgroundColor: habit.done ? colors.primaryPale : '#F5F5F5' }]}>
-        <Text style={{ fontSize: 15 }}>{habit.emoji}</Text>
-      </View>
-      <View style={styles.habitInfo}>
-        <Text style={[styles.habitName, habit.done && styles.habitNameDone]}>
-          {habit.name}
-        </Text>
-        <Text style={styles.habitTime}>{habit.time}</Text>
-      </View>
-      <Text style={styles.habitStreak}>🔥 {habit.streak}</Text>
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={styles.habitRow}
+        onPress={handlePress}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.habitCheck, habit.done && styles.habitCheckDone]}>
+          {habit.done && <Text style={{ color: '#fff', fontSize: 11 }}>✓</Text>}
+        </View>
+        <View style={[styles.emojiBox, { backgroundColor: habit.done ? colors.primaryPale : '#F5F5F5' }]}>
+          <Text style={{ fontSize: 15 }}>{habit.emoji}</Text>
+        </View>
+        <View style={styles.habitInfo}>
+          <Text style={[styles.habitName, habit.done && styles.habitNameDone]}>
+            {habit.name}
+          </Text>
+          <Text style={styles.habitTime}>{habit.time}</Text>
+        </View>
+        <Text style={styles.habitStreak}>🔥 {habit.streak}</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -114,6 +118,14 @@ export default function HomeScreen({ navigation }) {
   const [goals, setGoals] = useState([]);
   const [recentTx, setRecentTx] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Animações escalonadas por card
+  const heroAnim = useFadeInUp(0);
+  const habitsAnim = useFadeInUp(80);
+  const financeAnim = useFadeInUp(160);
+  const metaAnim = useFadeInUp(240);
+  const insightAnim = useFadeInUp(320);
+  const qaAnim = useFadeInUp(400);
 
   const month = currentMonth();
 
@@ -166,8 +178,8 @@ export default function HomeScreen({ navigation }) {
   const topGoal = goals[0];
 
   const insightText = habitsDone > 0
-    ? `Nos dias em que cozinhas em casa, gastas menos 12€ em média.`
-    : `Completa hábitos hoje para começares a gerar insights personalizados.`;
+    ? 'Nos dias em que cozinhas em casa, gastas menos 12€ em média.'
+    : 'Completa hábitos hoje para começares a gerar insights personalizados.';
 
   if (loading) {
     return (
@@ -202,147 +214,162 @@ export default function HomeScreen({ navigation }) {
       >
 
         {/* Hero card */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTop}>
-            <Text style={styles.heroDate}>
-              {todayLabel().charAt(0).toUpperCase() + todayLabel().slice(1)}
-            </Text>
-            <Badge
-              label={weekdayLabel().charAt(0).toUpperCase() + weekdayLabel().slice(1)}
-              color="#fff"
-              bg="rgba(255,255,255,0.2)"
-            />
+        <Animated.View style={heroAnim}>
+          <View style={styles.heroCard}>
+            <View style={styles.heroTop}>
+              <Text style={styles.heroDate}>
+                {todayLabel().charAt(0).toUpperCase() + todayLabel().slice(1)}
+              </Text>
+              <Badge
+                label={weekdayLabel().charAt(0).toUpperCase() + weekdayLabel().slice(1)}
+                color="#fff"
+                bg="rgba(255,255,255,0.2)"
+              />
+            </View>
+            <View style={styles.heroStats}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>{habitsDone}/{habitsTotal}</Text>
+                <Text style={styles.heroStatLabel}>Hábitos</Text>
+              </View>
+              <View style={styles.heroStatDivider} />
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>{summary.expenses}€</Text>
+                <Text style={styles.heroStatLabel}>Gastos mês</Text>
+              </View>
+              <View style={styles.heroStatDivider} />
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>🔥 {topStreak}</Text>
+                <Text style={styles.heroStatLabel}>Streak</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.heroStats}>
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatVal}>{habitsDone}/{habitsTotal}</Text>
-              <Text style={styles.heroStatLabel}>Hábitos</Text>
-            </View>
-            <View style={styles.heroStatDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatVal}>{summary.expenses}€</Text>
-              <Text style={styles.heroStatLabel}>Gastos mês</Text>
-            </View>
-            <View style={styles.heroStatDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatVal}>🔥 {topStreak}</Text>
-              <Text style={styles.heroStatLabel}>Streak</Text>
-            </View>
-          </View>
-        </View>
+        </Animated.View>
 
         {/* Hábitos do dia */}
-        <Card>
-          <SectionHeader
-            title="Hábitos de hoje"
-            action="Ver todos"
-            onPress={() => navigation.navigate('Hábitos')}
-          />
-          {habits.length === 0 ? (
-            <View style={styles.emptySmall}>
-              <Text style={styles.emptySmallText}>Ainda não tens hábitos criados.</Text>
-            </View>
-          ) : (
-            habits.slice(0, 3).map((h, i) => (
-              <View key={h.id}>
-                <HabitRow habit={h} onToggle={handleToggle} />
-                {i < Math.min(habits.length, 3) - 1 && <View style={styles.divider} />}
+        <Animated.View style={habitsAnim}>
+          <Card>
+            <SectionHeader
+              title="Hábitos de hoje"
+              action="Ver todos"
+              onPress={() => navigation.navigate('Hábitos')}
+            />
+            {habits.length === 0 ? (
+              <View style={styles.emptySmall}>
+                <Text style={styles.emptySmallText}>Ainda não tens hábitos criados.</Text>
               </View>
-            ))
-          )}
-        </Card>
+            ) : (
+              habits.slice(0, 3).map((h, i) => (
+                <View key={h.id}>
+                  <HabitRow habit={h} onToggle={handleToggle} />
+                  {i < Math.min(habits.length, 3) - 1 && <View style={styles.divider} />}
+                </View>
+              ))
+            )}
+          </Card>
+        </Animated.View>
 
         {/* Resumo financeiro */}
-        <Card>
-          <SectionHeader
-            title="Finanças"
-            action="Detalhes"
-            onPress={() => navigation.navigate('Finanças')}
-          />
-          <View style={styles.financeTop}>
-            <View>
-              <Text style={styles.financeAmount}>{summary.expenses}€</Text>
-              <Text style={styles.financeSub}>de {totalBudget}€ orçamento</Text>
-            </View>
-            <Badge
-              label={`${budgetPercent}% usado`}
-              color={budgetPercent >= 90 ? colors.error : colors.primary}
-              bg={budgetPercent >= 90 ? colors.errorPale : colors.primaryPale}
+        <Animated.View style={financeAnim}>
+          <Card>
+            <SectionHeader
+              title="Finanças"
+              action="Detalhes"
+              onPress={() => navigation.navigate('Finanças')}
             />
-          </View>
-          <ProgressBar percent={budgetPercent} />
-          <View style={styles.financeDivider} />
-          <View style={styles.financeRow}>
-            <View style={styles.financeStat}>
-              <Text style={[styles.financeStatVal, { color: colors.success }]}>+{summary.income}€</Text>
-              <Text style={styles.financeStatLabel}>Receitas</Text>
+            <View style={styles.financeTop}>
+              <View>
+                <Text style={styles.financeAmount}>{summary.expenses}€</Text>
+                <Text style={styles.financeSub}>de {totalBudget}€ orçamento</Text>
+              </View>
+              <Badge
+                label={`${budgetPercent}% usado`}
+                color={budgetPercent >= 90 ? colors.error : colors.primary}
+                bg={budgetPercent >= 90 ? colors.errorPale : colors.primaryPale}
+              />
             </View>
-            <View style={styles.financeStat}>
-              <Text style={[styles.financeStatVal, { color: colors.error }]}>-{summary.expenses}€</Text>
-              <Text style={styles.financeStatLabel}>Despesas</Text>
+            <AnimatedProgressBar percent={budgetPercent} delay={300} />
+            <View style={styles.financeDivider} />
+            <View style={styles.financeRow}>
+              <View style={styles.financeStat}>
+                <Text style={[styles.financeStatVal, { color: colors.success }]}>+{summary.income}€</Text>
+                <Text style={styles.financeStatLabel}>Receitas</Text>
+              </View>
+              <View style={styles.financeStat}>
+                <Text style={[styles.financeStatVal, { color: colors.error }]}>-{summary.expenses}€</Text>
+                <Text style={styles.financeStatLabel}>Despesas</Text>
+              </View>
+              <View style={styles.financeStat}>
+                <Text style={[styles.financeStatVal, { color: colors.primary }]}>
+                  {Math.max(0, summary.income - summary.expenses)}€
+                </Text>
+                <Text style={styles.financeStatLabel}>Poupança</Text>
+              </View>
             </View>
-            <View style={styles.financeStat}>
-              <Text style={[styles.financeStatVal, { color: colors.primary }]}>
-                {Math.max(0, summary.income - summary.expenses)}€
-              </Text>
-              <Text style={styles.financeStatLabel}>Poupança</Text>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        </Animated.View>
 
         {/* Meta principal */}
         {topGoal && (
-          <View style={styles.metaCard}>
-            <View style={styles.metaTop}>
-              <Text style={{ fontSize: 28 }}>{topGoal.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.metaLabel}>Meta principal</Text>
-                <Text style={styles.metaTitle}>{topGoal.name}</Text>
+          <Animated.View style={metaAnim}>
+            <View style={styles.metaCard}>
+              <View style={styles.metaTop}>
+                <Text style={{ fontSize: 28 }}>{topGoal.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.metaLabel}>Meta principal</Text>
+                  <Text style={styles.metaTitle}>{topGoal.name}</Text>
+                </View>
+                <Text style={styles.metaPercent}>
+                  {Math.round((topGoal.current / topGoal.target) * 100)}%
+                </Text>
               </View>
-              <Text style={styles.metaPercent}>
-                {Math.round((topGoal.current / topGoal.target) * 100)}%
-              </Text>
+              <View style={styles.metaProgressRow}>
+                <Text style={styles.metaProgressText}>
+                  {topGoal.current}€ de {topGoal.target}€
+                </Text>
+              </View>
+              <AnimatedProgressBar
+                percent={Math.round((topGoal.current / topGoal.target) * 100)}
+                delay={400}
+              />
             </View>
-            <View style={styles.metaProgressRow}>
-              <Text style={styles.metaProgressText}>
-                {topGoal.current}€ de {topGoal.target}€
-              </Text>
-            </View>
-            <ProgressBar percent={Math.round((topGoal.current / topGoal.target) * 100)} />
-          </View>
+          </Animated.View>
         )}
 
         {/* Insight */}
-        <View style={styles.insightCard}>
-          <Text style={styles.insightTag}>⚡ Insight</Text>
-          <Text style={styles.insightText}>{insightText}</Text>
-        </View>
+        <Animated.View style={insightAnim}>
+          <View style={styles.insightCard}>
+            <Text style={styles.insightTag}>⚡ Insight</Text>
+            <Text style={styles.insightText}>{insightText}</Text>
+          </View>
+        </Animated.View>
 
         {/* Quick actions */}
-        <View>
-          <SectionHeader title="Ações rápidas" />
-          <View style={styles.qaGrid}>
-            {QUICK_ACTIONS.map((qa) => (
-              <TouchableOpacity
-                key={qa.label}
-                style={styles.qaBtn}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (qa.label === 'Despesa' || qa.label === 'Receita') {
-                    navigation.navigate('Finanças');
-                  } else if (qa.label === 'Hábito') {
-                    navigation.navigate('Hábitos');
-                  }
-                }}
-              >
-                <View style={[styles.qaIcon, { backgroundColor: qa.bg }]}>
-                  <Text style={{ fontSize: 16 }}>{qa.emoji}</Text>
-                </View>
-                <Text style={styles.qaLabel}>{qa.label}</Text>
-              </TouchableOpacity>
-            ))}
+        <Animated.View style={qaAnim}>
+          <View>
+            <SectionHeader title="Ações rápidas" />
+            <View style={styles.qaGrid}>
+              {QUICK_ACTIONS.map((qa) => (
+                <TouchableOpacity
+                  key={qa.label}
+                  style={styles.qaBtn}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (qa.label === 'Despesa' || qa.label === 'Receita') {
+                      navigation.navigate('Finanças');
+                    } else if (qa.label === 'Hábito') {
+                      navigation.navigate('Hábitos');
+                    }
+                  }}
+                >
+                  <View style={[styles.qaIcon, { backgroundColor: qa.bg }]}>
+                    <Text style={{ fontSize: 16 }}>{qa.emoji}</Text>
+                  </View>
+                  <Text style={styles.qaLabel}>{qa.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        </Animated.View>
 
       </ScrollView>
     </SafeAreaView>
@@ -364,9 +391,6 @@ const styles = StyleSheet.create({
   avatarText: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 18, color: '#fff' },
 
   card: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, ...shadow.sm },
-
-  progressTrack: { backgroundColor: colors.border, borderRadius: 100, overflow: 'hidden' },
-  progressFill: { borderRadius: 100 },
 
   badge: { borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
   badgeText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 11 },

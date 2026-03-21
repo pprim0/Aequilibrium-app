@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
 import { getTransactions, addTransaction, getMonthSummary, getBudget, getSpentByCategory } from '../store/finance';
 import { getGoals } from '../store/goals';
+import { usePulse } from '../utils/animations';
+import AnimatedProgressBar from '../components/AnimatedProgressBar';
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -18,7 +20,6 @@ function formatDate(dateStr) {
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
-
   if (d.toDateString() === today.toDateString()) return 'Hoje';
   if (d.toDateString() === yesterday.toDateString()) return 'Ontem';
   return d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
@@ -37,16 +38,6 @@ const CATEGORIES = [
 ];
 
 // ── Mini componentes ──────────────────────────────────────
-
-function ProgressBar({ percent, color = colors.primary, height = 8 }) {
-  const safe = Math.min(percent, 100);
-  const barColor = percent >= 90 ? colors.error : percent >= 70 ? colors.warning : color;
-  return (
-    <View style={[styles.progressTrack, { height }]}>
-      <View style={[styles.progressFill, { width: `${safe}%`, backgroundColor: barColor, height }]} />
-    </View>
-  );
-}
 
 function Badge({ label, color = colors.primary, bg = colors.primaryPale }) {
   return (
@@ -88,7 +79,7 @@ function TransactionRow({ tx }) {
   );
 }
 
-function CategoryRow({ cat, spent }) {
+function CategoryRow({ cat, spent, index }) {
   const percent = cat.amount > 0 ? Math.round((spent / cat.amount) * 100) : 0;
   return (
     <View style={styles.catRow}>
@@ -98,7 +89,7 @@ function CategoryRow({ cat, spent }) {
           <Text style={styles.catName}>{cat.category}</Text>
           <Text style={styles.catAmt}>{spent || 0}€ / {cat.amount}€</Text>
         </View>
-        <ProgressBar percent={percent} height={6} />
+        <AnimatedProgressBar percent={percent} height={6} delay={index * 80} />
         {percent >= 90 && (
           <Text style={styles.catWarning}>⚠️ Perto do limite</Text>
         )}
@@ -107,7 +98,7 @@ function CategoryRow({ cat, spent }) {
   );
 }
 
-function GoalCard({ goal }) {
+function GoalCard({ goal, index }) {
   const percent = Math.round((goal.current / goal.target) * 100);
   return (
     <View style={styles.goalCard}>
@@ -119,7 +110,7 @@ function GoalCard({ goal }) {
         </View>
         <Text style={styles.goalPercent}>{percent}%</Text>
       </View>
-      <ProgressBar percent={percent} height={6} />
+      <AnimatedProgressBar percent={percent} height={6} delay={index * 100} />
       {percent >= 80 && (
         <Text style={[styles.catWarning, { color: colors.success, marginTop: 4 }]}>🎉 Quase lá!</Text>
       )}
@@ -168,7 +159,6 @@ function AddTransactionModal({ visible, onClose, onSave }) {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
 
-          {/* Modal header */}
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={onClose}>
               <Text style={styles.modalCancel}>Cancelar</Text>
@@ -181,7 +171,6 @@ function AddTransactionModal({ visible, onClose, onSave }) {
 
           <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
 
-            {/* Toggle tipo */}
             <View style={styles.typeToggle}>
               <TouchableOpacity
                 style={[styles.typeBtn, type === 'expense' && styles.typeBtnExpense]}
@@ -197,7 +186,6 @@ function AddTransactionModal({ visible, onClose, onSave }) {
               </TouchableOpacity>
             </View>
 
-            {/* Valor */}
             <View style={styles.amountWrap}>
               <Text style={styles.currencySymbol}>€</Text>
               <TextInput
@@ -211,7 +199,6 @@ function AddTransactionModal({ visible, onClose, onSave }) {
               />
             </View>
 
-            {/* Categoria */}
             <Text style={styles.inputLabel}>Categoria</Text>
             <View style={styles.catGrid}>
               {filteredCats.map(c => (
@@ -228,7 +215,6 @@ function AddTransactionModal({ visible, onClose, onSave }) {
               ))}
             </View>
 
-            {/* Descrição */}
             <Text style={styles.inputLabel}>Descrição</Text>
             <TextInput
               style={styles.input}
@@ -257,6 +243,8 @@ export default function FinanceScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
+  const { scale: fabScale, pulse: fabPulse } = usePulse();
+
   const tabs = ['Resumo', 'Transações', 'Orçamento', 'Metas'];
   const month = currentMonth();
 
@@ -276,12 +264,10 @@ export default function FinanceScreen() {
         getSpentByCategory(month),
         getGoals(),
       ]);
-
       setTransactions(txs);
       setSummary(sum);
       setBudget(bud);
       setGoals(gls);
-
       const spentMap = {};
       spent.forEach(s => { spentMap[s.category] = s.total; });
       setSpentByCategory(spentMap);
@@ -297,14 +283,14 @@ export default function FinanceScreen() {
     await loadData();
   }
 
-  const budgetPercent = summary.expenses > 0 && budget.length > 0
-    ? Math.round((summary.expenses / budget.reduce((a, b) => a + b.amount, 0)) * 100)
+  const totalBudget = budget.reduce((a, b) => a + b.amount, 0);
+  const budgetPercent = totalBudget > 0
+    ? Math.round((summary.expenses / totalBudget) * 100)
     : 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Finanças</Text>
         <View style={[styles.badge, { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border }]}>
@@ -314,7 +300,6 @@ export default function FinanceScreen() {
         </View>
       </View>
 
-      {/* Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContent}>
         {tabs.map(t => (
           <TouchableOpacity key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
@@ -370,7 +355,7 @@ export default function FinanceScreen() {
                     <Text style={styles.budgetText}>{summary.expenses}€ usados</Text>
                     <Text style={styles.budgetPercent}>{budgetPercent}%</Text>
                   </View>
-                  <ProgressBar percent={budgetPercent} />
+                  <AnimatedProgressBar percent={budgetPercent} delay={200} />
                 </View>
               )}
 
@@ -423,13 +408,13 @@ export default function FinanceScreen() {
                   <Text style={styles.budgetText}>Total gasto: {summary.expenses}€</Text>
                   <Text style={styles.budgetPercent}>{budgetPercent}%</Text>
                 </View>
-                <ProgressBar percent={budgetPercent} height={10} />
+                <AnimatedProgressBar percent={budgetPercent} height={10} delay={100} />
               </View>
               <View style={styles.card}>
                 <SectionHeader title="Por categoria" />
                 {budget.map((cat, i) => (
                   <View key={cat.category}>
-                    <CategoryRow cat={cat} spent={spentByCategory[cat.category] || 0} />
+                    <CategoryRow cat={cat} spent={spentByCategory[cat.category] || 0} index={i} />
                     {i < budget.length - 1 && <View style={styles.txDivider} />}
                   </View>
                 ))}
@@ -456,7 +441,7 @@ export default function FinanceScreen() {
                   <Text style={styles.emptySub}>Cria a tua primeira meta de poupança.</Text>
                 </View>
               ) : (
-                goals.map(g => <GoalCard key={g.id} goal={g} />)
+                goals.map((g, i) => <GoalCard key={g.id} goal={g} index={i} />)
               )}
               <TouchableOpacity style={styles.addCatBtn}>
                 <Text style={styles.addCatText}>+ Criar nova meta</Text>
@@ -467,12 +452,17 @@ export default function FinanceScreen() {
         </ScrollView>
       )}
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={() => setModalVisible(true)}>
-        <Text style={{ color: '#fff', fontSize: 28, lineHeight: 32 }}>+</Text>
-      </TouchableOpacity>
+      {/* FAB animado */}
+      <Animated.View style={[styles.fab, { transform: [{ scale: fabScale }] }]}>
+        <TouchableOpacity
+          style={styles.fabInner}
+          activeOpacity={0.8}
+          onPress={() => { fabPulse(); setModalVisible(true); }}
+        >
+          <Text style={{ color: '#fff', fontSize: 28, lineHeight: 32 }}>+</Text>
+        </TouchableOpacity>
+      </Animated.View>
 
-      {/* Modal */}
       <AddTransactionModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -508,9 +498,6 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sectionTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.text },
   seeAll: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13, color: colors.primary },
-
-  progressTrack: { backgroundColor: colors.border, borderRadius: 100, overflow: 'hidden' },
-  progressFill: { borderRadius: 100 },
 
   balanceCard: { backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.lg, ...shadow.md },
   balanceLabel: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 12, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
@@ -548,14 +535,14 @@ const styles = StyleSheet.create({
   addCatBtn: { borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed', borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
   addCatText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14, color: colors.primary },
 
-  fab: { position: 'absolute', bottom: 90, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadow.md },
+  fab: { position: 'absolute', bottom: 90, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primary, ...shadow.md },
+  fabInner: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
 
   emptyState: { alignItems: 'center', paddingVertical: 48, gap: 8 },
   emptyIcon: { fontSize: 52, marginBottom: 8 },
   emptyTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 18, color: colors.text },
   emptySub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 14, color: colors.text3, textAlign: 'center', maxWidth: 260, lineHeight: 21 },
 
-  // Modal
   modalSafe: { flex: 1, backgroundColor: colors.card },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   modalTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 17, color: colors.text },
