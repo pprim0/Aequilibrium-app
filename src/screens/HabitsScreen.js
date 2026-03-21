@@ -8,6 +8,7 @@ import AddHabitModal from '../components/AddHabitModal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import SwipeableHabitCard from '../components/SwipeableHabitCard';
 import { deleteHabit } from '../store/habits';
+import { cancelHabitReminder } from '../utils/notifications';
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -170,10 +171,9 @@ export default function HabitsScreen() {
     }
 
     async function handleDelete(id) {
-        // Remove da UI imediatamente
         setHabits(prev => prev.filter(h => h.id !== id));
-        // Persiste na base de dados
         try {
+            await cancelHabitReminder(id);
             await deleteHabit(id);
         } catch (e) {
             console.error('Erro ao apagar hábito:', e);

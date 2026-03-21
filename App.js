@@ -12,6 +12,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initDatabase } from './src/store/database';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { requestPermissions } from './src/utils/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +30,9 @@ export default function App() {
     initDatabase()
       .then(() => setDbReady(true))
       .catch(console.error);
+
+    // Pede permissões de notificações
+    requestPermissions();
   }, []);
 
   const onLayoutRootView = useCallback(async () => {
