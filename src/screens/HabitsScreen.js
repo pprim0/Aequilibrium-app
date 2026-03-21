@@ -70,7 +70,7 @@ function SummaryBar({ total, done }) {
     );
 }
 
-function HabitCard({ habit, onToggle }) {
+function HabitCard({ habit, onToggle, onEdit }) {
     const [pressing, setPressing] = useState(false);
 
     return (
@@ -80,6 +80,8 @@ function HabitCard({ habit, onToggle }) {
             onPressIn={() => setPressing(true)}
             onPressOut={() => setPressing(false)}
             onPress={() => onToggle(habit.id)}
+            onLongPress={() => onEdit(habit)}
+            delayLongPress={400}
         >
             <View style={[styles.habitEmoji, { backgroundColor: habit.done ? colors.primary : habit.color }]}>
                 <Text style={{ fontSize: 22 }}>{habit.emoji}</Text>
@@ -99,6 +101,11 @@ function HabitCard({ habit, onToggle }) {
                 <View style={[styles.habitCheck, habit.done && styles.habitCheckDone]}>
                     {habit.done && <Text style={{ color: '#fff', fontSize: 13 }}>✓</Text>}
                 </View>
+            </View>
+
+            {/* Indicador de long press */}
+            <View style={styles.editHint}>
+                <Text style={styles.editHintText}>···</Text>
             </View>
         </TouchableOpacity>
     );
@@ -121,6 +128,7 @@ export default function HabitsScreen() {
     const [habits, setHabits] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
+    const [editingHabit, setEditingHabit] = useState(null);
 
     const tabs = ['Hoje', 'Semana', 'Todos'];
 
@@ -203,7 +211,15 @@ export default function HabitsScreen() {
                     ) : (
                         <View style={styles.habitList}>
                             {habits.map(h => (
-                                <HabitCard key={h.id} habit={h} onToggle={handleToggle} />
+                                <HabitCard
+                                    key={h.id}
+                                    habit={h}
+                                    onToggle={handleToggle}
+                                    onEdit={(habit) => {
+                                        setEditingHabit(habit);
+                                        setModalVisible(true);
+                                    }}
+                                />
                             ))}
                         </View>
                     )}
@@ -220,13 +236,17 @@ export default function HabitsScreen() {
             )}
             <AddHabitModal
                 visible={modalVisible}
-                onClose={() => setModalVisible(false)}
+                onClose={() => {
+                    setModalVisible(false);
+                    setEditingHabit(null);
+                }}
                 onSave={() => {
                     setModalVisible(false);
+                    setEditingHabit(null);
                     loadHabits();
                 }}
+                editHabit={editingHabit}
             />
-
         </SafeAreaView>
     );
 }
@@ -286,10 +306,12 @@ const styles = StyleSheet.create({
     habitCheck: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     habitCheckDone: { backgroundColor: colors.primary, borderColor: colors.primary },
 
-    // Add habit
+    // Add habit or edit habit
     addHabitBtn: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed' },
     addHabitIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primaryPale, alignItems: 'center', justifyContent: 'center' },
     addHabitText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.primary },
+    editHint: { position: 'absolute', top: 8, right: 12 },
+    editHintText: { fontSize: 12, color: colors.text3, letterSpacing: 1 },
 
     // Empty state
     emptyState: { alignItems: 'center', paddingVertical: 48, gap: 8 },

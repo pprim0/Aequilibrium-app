@@ -67,3 +67,11 @@ export async function deleteHabit(id) {
   const db = await getDB();
   await db.runAsync('DELETE FROM habits WHERE id = ?', [id]);
 }
+
+export async function updateHabit(id, fields) {
+  const db = await getDB();
+  await db.runAsync(
+    `UPDATE habits SET name = ?, emoji = ?, color = ?, frequency = ?, time = ? WHERE id = ?`,
+    [fields.name, fields.emoji, fields.color, fields.frequency, fields.time, id]
+  );
+}
