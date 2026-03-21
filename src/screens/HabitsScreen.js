@@ -5,6 +5,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
 import { getTodayHabits, toggleHabit } from '../store/habits';
 import AddHabitModal from '../components/AddHabitModal';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import SwipeableHabitCard from '../components/SwipeableHabitCard';
+import { deleteHabit } from '../store/habits';
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -166,6 +169,18 @@ export default function HabitsScreen() {
         }
     }
 
+    async function handleDelete(id) {
+        // Remove da UI imediatamente
+        setHabits(prev => prev.filter(h => h.id !== id));
+        // Persiste na base de dados
+        try {
+            await deleteHabit(id);
+        } catch (e) {
+            console.error('Erro ao apagar hábito:', e);
+            loadHabits();
+        }
+    }
+
     const done = habits.filter(h => h.done).length;
 
     return (
@@ -209,19 +224,22 @@ export default function HabitsScreen() {
                     {habits.length === 0 ? (
                         <EmptyState />
                     ) : (
-                        <View style={styles.habitList}>
-                            {habits.map(h => (
-                                <HabitCard
-                                    key={h.id}
-                                    habit={h}
-                                    onToggle={handleToggle}
-                                    onEdit={(habit) => {
-                                        setEditingHabit(habit);
-                                        setModalVisible(true);
-                                    }}
-                                />
-                            ))}
-                        </View>
+                        <GestureHandlerRootView>
+                            <View style={styles.habitList}>
+                                {habits.map(h => (
+                                    <SwipeableHabitCard
+                                        key={h.id}
+                                        habit={h}
+                                        onToggle={handleToggle}
+                                        onEdit={(habit) => {
+                                            setEditingHabit(habit);
+                                            setModalVisible(true);
+                                        }}
+                                        onDelete={handleDelete}
+                                    />
+                                ))}
+                            </View>
+                        </GestureHandlerRootView>
                     )}
 
                     {/* Add habit */}

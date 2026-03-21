@@ -75,3 +75,8 @@ export async function updateHabit(id, fields) {
     [fields.name, fields.emoji, fields.color, fields.frequency, fields.time, id]
   );
 }
+
+export async function deleteHabit(id) {
+  const db = await getDB();
+  await db.runAsync('DELETE FROM habits WHERE id = ?', [id]);
+}

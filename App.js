@@ -11,6 +11,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initDatabase } from './src/store/database';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,10 +38,12 @@ export default function App() {
   if (!fontsLoaded || !dbReady) return null;
 
   return (
-    <NavigationContainer>
-      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        <RootNavigator />
-      </View>
-    </NavigationContainer>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NavigationContainer>
+        <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+          <RootNavigator />
+        </View>
+      </NavigationContainer>
+    </GestureHandlerRootView>
   );
 }
