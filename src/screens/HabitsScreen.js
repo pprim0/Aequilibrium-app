@@ -235,6 +235,7 @@ export default function HabitsScreen() {
                 </ScrollView>
             )}
             <AddHabitModal
+                key={editingHabit ? editingHabit.id : 'new'}
                 visible={modalVisible}
                 onClose={() => {
                     setModalVisible(false);
