@@ -70,8 +70,9 @@ export default function OnboardingScreen({ navigation }) {
 
   async function finish() {
     await AsyncStorage.setItem('onboarding_done', 'true');
-    navigation.replace('Main');
+    navigation.replace('Login');
   }
+
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

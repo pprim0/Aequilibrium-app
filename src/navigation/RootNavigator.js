@@ -4,6 +4,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme';
+import { getSession } from '../store/supabase';
+import { isBiometricEnabled, authenticateWithBiometrics } from '../utils/biometrics';
 
 import HomeScreen from '../screens/HomeScreen';
 import HabitsScreen from '../screens/HabitsScreen';
@@ -13,6 +15,9 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SplashScreen from '../screens/SplashScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+import BiometricScreen from '../screens/BiometricScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -56,17 +61,47 @@ function MainTabs() {
 }
 
 export default function RootNavigator() {
-  const [checking, setChecking] = useState(true);
-  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [state, setState] = useState('loading');
 
   useEffect(() => {
-    AsyncStorage.getItem('onboarding_done').then(val => {
-      setOnboardingDone(val === 'true');
-      setChecking(false);
-    });
+    checkInitialState();
   }, []);
 
-  if (checking) {
+  async function checkInitialState() {
+    try {
+      // 1. Onboarding feito?
+      const onboardingDone = await AsyncStorage.getItem('onboarding_done');
+      if (!onboardingDone) {
+        setState('onboarding');
+        return;
+      }
+
+      // 2. Sessão ativa?
+      const session = await getSession();
+      if (!session) {
+        setState('auth');
+        return;
+      }
+
+      // 3. Biometria ativa?
+      const biometricEnabled = await isBiometricEnabled();
+      if (biometricEnabled) {
+        const success = await authenticateWithBiometrics();
+        if (!success) {
+          setState('auth');
+          return;
+        }
+      }
+
+      // Tudo ok → app principal
+      setState('main');
+    } catch (e) {
+      console.error('Erro ao verificar estado:', e);
+      setState('auth');
+    }
+  }
+
+  if (state === 'loading') {
     return (
       <View style={{ flex: 1, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color="#fff" size="large" />
@@ -76,14 +111,28 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!onboardingDone ? (
+
+      {/* Onboarding — só na primeira vez */}
+      {state === 'onboarding' && (
         <>
           <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         </>
-      ) : null}
+      )}
+
+      {/* Auth — sem sessão */}
+      {(state === 'auth' || state === 'onboarding') && (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="BiometricSetup" component={BiometricScreen} />
+        </>
+      )}
+
+      {/* App principal */}
       <Stack.Screen name="Main" component={MainTabs} />
+
     </Stack.Navigator>
   );
 }

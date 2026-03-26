@@ -47,7 +47,7 @@ export default function WelcomeScreen({ navigation }) {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.btnSecondary}
-          onPress={() => navigation.replace('Main')}
+          onPress={() => navigation.navigate('Login')}
           activeOpacity={0.85}
         >
           <Text style={styles.btnSecondaryText}>Já tenho conta</Text>
