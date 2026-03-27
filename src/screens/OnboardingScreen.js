@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveOnboardingDraft } from '../services/onboardingService';
 
 const GOALS = [
   { emoji: '🌱', label: 'Criar melhores hábitos' },

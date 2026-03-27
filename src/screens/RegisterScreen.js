@@ -6,7 +6,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
-import { signUp } from '../store/supabase';
+import { signUp, getSession } from '../services/authService';
+import { getOnboardingDraft, applyOnboardingDraftToUser } from '../services/onboardingService';
 import { setBiometricEnabled, isBiometricAvailable } from '../utils/biometrics';
 import { useShake } from '../utils/animations';
 

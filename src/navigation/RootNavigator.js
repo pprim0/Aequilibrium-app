@@ -4,7 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme';
-import { getSession } from '../store/supabase';
+import { getAppBootstrapState } from '../services/profileService';
 import { isBiometricEnabled, authenticateWithBiometrics } from '../utils/biometrics';
 
 import HomeScreen from '../screens/HomeScreen';

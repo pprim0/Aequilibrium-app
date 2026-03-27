@@ -6,7 +6,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
-import { signIn } from '../store/supabase';
+import { signIn } from '../services/authService';
+import { getOnboardingDraft, applyOnboardingDraftToUser } from '../services/onboardingService';
 import { useShake } from '../utils/animations';
 
 export default function LoginScreen({ navigation }) {
