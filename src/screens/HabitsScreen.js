@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
-import { getTodayHabits, toggleHabit } from '../store/habits';
+import { getTodayHabits, toggleHabit, deleteHabit } from '../services/habitService';
 import AddHabitModal from '../components/AddHabitModal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import SwipeableHabitCard from '../components/SwipeableHabitCard';

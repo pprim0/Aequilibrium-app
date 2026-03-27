@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
-import { createHabit, updateHabit } from '../store/habits';
+import { createHabit, updateHabit } from '../services/habitService';
 import { scheduleHabitReminder } from '../utils/notifications';
 
 // ── Opções ────────────────────────────────────────────────
