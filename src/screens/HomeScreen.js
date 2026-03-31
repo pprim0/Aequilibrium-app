@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
 import { getTodayHabits, toggleHabit } from '../services/habitService';
-import { getMonthSummary, getTransactions, getBudget } from '../store/finance';
-import { getGoals } from '../store/goals';
+import { getMonthSummary, getTransactions, getBudget } from '../services/financeService';
+import { getGoals } from '../services/goalService';
+import { getMyProfile } from '../services/profileService';
 import { useFadeInUp } from '../utils/animations';
 import AnimatedProgressBar from '../components/AnimatedProgressBar';
 
@@ -112,6 +113,7 @@ const QUICK_ACTIONS = [
 // ── Screen principal ──────────────────────────────────────
 
 export default function HomeScreen({ navigation }) {
+  const [profileName, setProfileName] = useState('Utilizador');
   const [habits, setHabits] = useState([]);
   const [summary, setSummary] = useState({ income: 0, expenses: 0, balance: 0 });
   const [budget, setBudget] = useState([]);
@@ -138,13 +140,15 @@ export default function HomeScreen({ navigation }) {
   async function loadAll() {
     try {
       setLoading(true);
-      const [h, sum, bud, gls, txs] = await Promise.all([
+      const [profile, h, sum, bud, gls, txs] = await Promise.all([
+        getMyProfile(),
         getTodayHabits(),
         getMonthSummary(month),
-        getBudget(),
+        getBudget(month),
         getGoals(),
         getTransactions(month),
       ]);
+      setProfileName(profile?.name || 'Utilizador');
       setHabits(h);
       setSummary(sum);
       setBudget(bud);
@@ -176,10 +180,17 @@ export default function HomeScreen({ navigation }) {
   const habitsTotal = habits.length;
   const topStreak = habits.reduce((max, h) => h.streak > max ? h.streak : max, 0);
   const topGoal = goals[0];
+  const firstName = (profileName || 'Utilizador').trim().split(' ')[0] || 'Utilizador';
 
-  const insightText = habitsDone > 0
-    ? 'Nos dias em que cozinhas em casa, gastas menos 12€ em média.'
-    : 'Completa hábitos hoje para começares a gerar insights personalizados.';
+  const insightText = recentTx.length === 0
+    ? 'Regista os primeiros movimentos para começares a gerar insights financeiros reais.'
+    : budget.length === 0
+      ? 'Define um orçamento mensal para acompanhares melhor o progresso por categoria.'
+      : budgetPercent >= 90
+        ? 'Estás perto do limite do orçamento deste mês.'
+        : summary.balance > 0
+          ? `Manténs ${summary.balance.toFixed(0)}€ de saldo positivo este mês.`
+          : 'As despesas já ultrapassaram as receitas este mês.';
 
   if (loading) {
     return (
@@ -197,14 +208,14 @@ export default function HomeScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>{greeting()}, Pedro 👋</Text>
+          <Text style={styles.greeting}>{greeting()}, {firstName} 👋</Text>
           <Text style={styles.greetingSub}>
             {habitsTotal - habitsDone > 0
               ? `${habitsTotal - habitsDone} hábitos por concluir hoje`
               : 'Todos os hábitos concluídos! 🎉'}
           </Text>
         </View>
-        <Avatar name="Pedro" />
+        <Avatar name={firstName} />
       </View>
 
       <ScrollView
@@ -279,7 +290,9 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.financeTop}>
               <View>
                 <Text style={styles.financeAmount}>{summary.expenses}€</Text>
-                <Text style={styles.financeSub}>de {totalBudget}€ orçamento</Text>
+                <Text style={styles.financeSub}>
+                  {totalBudget > 0 ? `de ${totalBudget}€ orçamento` : 'Sem orçamento definido'}
+                </Text>
               </View>
               <Badge
                 label={`${budgetPercent}% usado`}

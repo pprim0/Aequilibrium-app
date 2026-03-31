@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
-import { getTransactions, addTransaction, getMonthSummary, getBudget, getSpentByCategory } from '../store/finance';
-import { getGoals } from '../store/goals';
+import { createTransaction, getTransactions, getMonthSummary, getBudget, getSpentByCategory, getFinanceCategories } from '../services/financeService';
+import { getGoals } from '../services/goalService';
 import { usePulse } from '../utils/animations';
 import AnimatedProgressBar from '../components/AnimatedProgressBar';
 
@@ -120,22 +120,39 @@ function GoalCard({ goal, index }) {
 
 // ── Modal Adicionar Movimento ─────────────────────────────
 
-function AddTransactionModal({ visible, onClose, onSave }) {
+function AddTransactionModal({ visible, onClose, onSave, categories = [] }) {
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('Alimentação');
+  const expenseDefault = categories.find(c => c.type === 'expense')?.name || 'Alimentação';
+  const incomeDefault = categories.find(c => c.type === 'income')?.name || 'Salário';
+  const [category, setCategory] = useState(expenseDefault);
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const filteredCats = type === 'income'
-    ? CATEGORIES.filter(c => c.name === 'Receita' || c.name === 'Outros')
-    : CATEGORIES.filter(c => c.name !== 'Receita');
+  const availableCategories = categories.length > 0
+    ? categories
+    : CATEGORIES.map(c => ({
+      name: c.name,
+      emoji: c.emoji,
+      type: c.name === 'Receita' ? 'income' : 'expense',
+    }));
+
+  const filteredCats = availableCategories.filter(c => c.type === type);
+
+  useEffect(() => {
+    if (visible) {
+      setType('expense');
+      setAmount('');
+      setCategory(expenseDefault);
+      setDescription('');
+    }
+  }, [visible, expenseDefault]);
 
   async function handleSave() {
     if (!amount || isNaN(parseFloat(amount))) return;
     setSaving(true);
     try {
-      const cat = CATEGORIES.find(c => c.name === category);
+      const cat = filteredCats.find(c => c.name === category);
       await onSave({
         type,
         amount: parseFloat(amount),
@@ -147,7 +164,7 @@ function AddTransactionModal({ visible, onClose, onSave }) {
       });
       setAmount('');
       setDescription('');
-      setCategory('Alimentação');
+      setCategory(type === 'income' ? incomeDefault : expenseDefault);
       onClose();
     } finally {
       setSaving(false);
@@ -174,13 +191,13 @@ function AddTransactionModal({ visible, onClose, onSave }) {
             <View style={styles.typeToggle}>
               <TouchableOpacity
                 style={[styles.typeBtn, type === 'expense' && styles.typeBtnExpense]}
-                onPress={() => { setType('expense'); setCategory('Alimentação'); }}
+                onPress={() => { setType('expense'); setCategory(expenseDefault); }}
               >
                 <Text style={[styles.typeBtnText, type === 'expense' && { color: '#fff' }]}>Despesa</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.typeBtn, type === 'income' && styles.typeBtnIncome]}
-                onPress={() => { setType('income'); setCategory('Receita'); }}
+                onPress={() => { setType('income'); setCategory(incomeDefault); }}
               >
                 <Text style={[styles.typeBtnText, type === 'income' && { color: '#fff' }]}>Receita</Text>
               </TouchableOpacity>
@@ -240,6 +257,7 @@ export default function FinanceScreen() {
   const [budget, setBudget] = useState([]);
   const [spentByCategory, setSpentByCategory] = useState({});
   const [goals, setGoals] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -257,17 +275,19 @@ export default function FinanceScreen() {
   async function loadData() {
     try {
       setLoading(true);
-      const [txs, sum, bud, spent, gls] = await Promise.all([
+      const [txs, sum, bud, spent, gls, cats] = await Promise.all([
         getTransactions(month),
         getMonthSummary(month),
-        getBudget(),
+        getBudget(month),
         getSpentByCategory(month),
         getGoals(),
+        getFinanceCategories(),
       ]);
       setTransactions(txs);
       setSummary(sum);
       setBudget(bud);
       setGoals(gls);
+      setCategories(cats);
       const spentMap = {};
       spent.forEach(s => { spentMap[s.category] = s.total; });
       setSpentByCategory(spentMap);
@@ -279,7 +299,7 @@ export default function FinanceScreen() {
   }
 
   async function handleAddTransaction(tx) {
-    await addTransaction(tx);
+    await createTransaction(tx);
     await loadData();
   }
 
@@ -412,12 +432,18 @@ export default function FinanceScreen() {
               </View>
               <View style={styles.card}>
                 <SectionHeader title="Por categoria" />
-                {budget.map((cat, i) => (
-                  <View key={cat.category}>
-                    <CategoryRow cat={cat} spent={spentByCategory[cat.category] || 0} index={i} />
-                    {i < budget.length - 1 && <View style={styles.txDivider} />}
+                {budget.length === 0 ? (
+                  <View style={styles.emptySmall}>
+                    <Text style={styles.emptySmallText}>Ainda não tens orçamento definido para este mês.</Text>
                   </View>
-                ))}
+                ) : (
+                  budget.map((cat, i) => (
+                    <View key={cat.category}>
+                      <CategoryRow cat={cat} spent={spentByCategory[cat.category] || 0} index={i} />
+                      {i < budget.length - 1 && <View style={styles.txDivider} />}
+                    </View>
+                  ))
+                )}
               </View>
             </>
           )}
@@ -467,6 +493,7 @@ export default function FinanceScreen() {
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSave={handleAddTransaction}
+        categories={categories}
       />
 
     </SafeAreaView>
@@ -542,6 +569,8 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 52, marginBottom: 8 },
   emptyTitle: { fontFamily: 'PlusJakartaSans_800ExtraBold', fontSize: 18, color: colors.text },
   emptySub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 14, color: colors.text3, textAlign: 'center', maxWidth: 260, lineHeight: 21 },
+  emptySmall: { alignItems: 'center', paddingVertical: 16 },
+  emptySmallText: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.text3, textAlign: 'center' },
 
   modalSafe: { flex: 1, backgroundColor: colors.card },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },

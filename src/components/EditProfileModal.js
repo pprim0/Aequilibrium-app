@@ -1,23 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View, Text, Modal, TouchableOpacity, TextInput,
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
-import { saveUserProfile } from '../store/database';
+import { updateMyProfile } from '../services/profileService';
 
 export default function EditProfileModal({ visible, onClose, onSave, currentName, currentMotivation }) {
   const [name, setName] = useState(currentName || '');
   const [motivation, setMotivation] = useState(currentMotivation || '');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (visible) {
+      setName(currentName || '');
+      setMotivation(currentMotivation || '');
+    }
+  }, [visible, currentName, currentMotivation]);
+
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await saveUserProfile({ name: name.trim(), motivation: motivation.trim() });
-      onSave({ name: name.trim(), motivation: motivation.trim() });
+      const profile = await updateMyProfile({
+        name: name.trim(),
+        motivation: motivation.trim(),
+      });
+      onSave(profile);
       onClose();
     } finally {
       setSaving(false);
