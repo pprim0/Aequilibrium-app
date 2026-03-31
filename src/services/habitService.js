@@ -89,11 +89,12 @@ function calculateStreak(habit, logsByDate) {
 
 async function getCurrentUserId() {
   const {
-    data: { user },
+    data: { session },
     error,
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getSession();
 
   if (error) throw error;
+  const user = session?.user;
   if (!user) throw new Error('No user');
 
   return user.id;

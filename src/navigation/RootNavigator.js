@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme';
+import { supabase } from '../lib/supabase';
 import { getAppBootstrapState } from '../services/profileService';
 import { getOnboardingDraft } from '../services/onboardingService';
 import { isBiometricEnabled, authenticateWithBiometrics } from '../utils/biometrics';
@@ -75,6 +76,18 @@ export default function RootNavigator() {
 
   useEffect(() => {
     checkInitialState();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_OUT') {
+        setState('auth');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function checkInitialState() {
@@ -125,7 +138,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator key={state} screenOptions={{ headerShown: false }}>
 
       {/* Onboarding — só na primeira utilização */}
       {state === 'welcome' && (

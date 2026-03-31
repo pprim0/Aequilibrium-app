@@ -1,16 +1,26 @@
 import { supabase } from '../lib/supabase';
 
+async function getAuthenticatedUser() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return session?.user || null;
+}
+
 export async function getMyProfile() {
+  const user = await getAuthenticatedUser();
+  if (!user) return null;
+
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
+    .eq('id', user.id)
     .single();
   if (error) throw error;
   return data;
 }
 
 export async function updateMyProfile(patch) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthenticatedUser();
   if (!user) throw new Error('No user');
 
   const { data, error } = await supabase
@@ -24,7 +34,7 @@ export async function updateMyProfile(patch) {
 }
 
 export async function ensureMyProfile(name) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthenticatedUser();
   if (!user) throw new Error('No user');
 
   const { data: existing } = await supabase

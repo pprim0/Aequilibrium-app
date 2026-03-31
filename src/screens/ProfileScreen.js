@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, shadow } from '../theme';
 import { sendTestNotification, cancelAllReminders } from '../utils/notifications';
 import { getMyProfile } from '../services/profileService';
 import { signOut } from '../services/authService';
+import { deleteMyAccount } from '../services/accountService';
 import { getGoals } from '../services/goalService';
 import { getMonthSummary, getBudget } from '../services/financeService';
 import { getAllHabits, getTodayHabits } from '../services/habitService';
@@ -68,6 +69,7 @@ export default function ProfileScreen({ navigation }) {
   const [summary, setSummary] = useState({ income: 0, expenses: 0, balance: 0 });
   const [budget, setBudget] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
 
   useFocusEffect(
@@ -104,9 +106,58 @@ export default function ProfileScreen({ navigation }) {
   async function handleLogout() {
     try {
       await signOut();
-      navigation.getParent()?.navigate('Login');
     } catch (error) {
       console.error('Erro ao terminar sessão:', error);
+    }
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Apagar conta',
+      'Isto vai apagar os teus dados da app neste momento e terminar a sessão. Esta ação é irreversível.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: confirmDeleteAccount,
+        },
+      ]
+    );
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Confirmação final',
+      'Tens a certeza absoluta? Vamos apagar perfil, hábitos, transações, metas, categorias, orçamentos e preferências.',
+      [
+        { text: 'Voltar atrás', style: 'cancel' },
+        {
+          text: 'Apagar tudo',
+          style: 'destructive',
+          onPress: performAccountDeletion,
+        },
+      ]
+    );
+  }
+
+  async function performAccountDeletion() {
+    try {
+      setDeletingAccount(true);
+      await deleteMyAccount();
+      try {
+        await signOut();
+      } catch (_) {
+        // Se o utilizador já foi removido do auth, a sessão local será descartada no reload do bootstrap.
+      }
+    } catch (error) {
+      console.error('Erro ao apagar conta:', error);
+      Alert.alert(
+        'Não foi possível apagar a conta',
+        error.message || 'Tenta novamente dentro de instantes.'
+      );
+    } finally {
+      setDeletingAccount(false);
     }
   }
 
@@ -156,7 +207,7 @@ export default function ProfileScreen({ navigation }) {
       title: 'Dados',
       items: [
         { emoji: '📤', label: 'Exportar dados', sub: 'CSV ou JSON', arrow: true },
-        { emoji: '🗑️', label: 'Apagar conta', sub: 'Ação irreversível', arrow: true, danger: true },
+        { emoji: '🗑️', label: 'Apagar conta', sub: 'Apaga os teus dados da app', arrow: true, danger: true, onPress: handleDeleteAccount },
       ],
     },
   ], [profile]);
@@ -173,6 +224,15 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {deletingAccount && (
+        <View style={styles.deletingOverlay}>
+          <View style={styles.deletingCard}>
+            <ActivityIndicator color={colors.error} size="large" />
+            <Text style={styles.deletingTitle}>A apagar conta</Text>
+            <Text style={styles.deletingSub}>Estamos a remover os teus dados e a terminar a sessão.</Text>
+          </View>
+        </View>
+      )}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -339,4 +399,24 @@ const styles = StyleSheet.create({
   logoutBtn: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', ...shadow.sm },
   logoutText: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, color: colors.error },
   version: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, color: colors.text3, textAlign: 'center', marginTop: 4 },
+  deletingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(20,20,20,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    padding: spacing.lg,
+  },
+  deletingCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: 10,
+    ...shadow.md,
+  },
+  deletingTitle: { fontFamily: 'PlusJakartaSans_700Bold', fontSize: 17, color: colors.text },
+  deletingSub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 13, color: colors.text2, textAlign: 'center', lineHeight: 20 },
 });
