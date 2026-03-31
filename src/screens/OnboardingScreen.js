@@ -5,6 +5,8 @@ import { colors, spacing, radius } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveOnboardingDraft } from '../services/onboardingService';
 
+const HAS_LAUNCHED_KEY = 'momentum_has_launched';
+
 const GOALS = [
   { emoji: '🌱', label: 'Criar melhores hábitos' },
   { emoji: '📅', label: 'Organizar a rotina' },
@@ -70,10 +72,28 @@ export default function OnboardingScreen({ navigation }) {
   }
 
   async function finish() {
-    await AsyncStorage.setItem('onboarding_done', 'true');
-    navigation.replace('Login');
-  }
+    // 1. Construir o draft com tudo o que o utilizador configurou
+    const draft = {
+      primaryGoal: selectedGoal,
+      selectedHabits: selectedHabits.map(label => {
+        const found = HABIT_SUGGESTIONS.find(h => h.label === label);
+        return { name: label, emoji: found?.emoji || '✅' };
+      }),
+      monthlyIncome: parseFloat(income) || 0,
+      monthlyBudget: parseFloat(budget) || 0,
+      monthlySavingsTarget: parseFloat(savings) || 0,
+      selectedCategories: selectedCats,
+    };
 
+    // 2. Guardar draft localmente (será aplicado à conta após signup/login)
+    await saveOnboardingDraft(draft);
+
+    // 3. Marcar que o utilizador já viu o onboarding neste dispositivo
+    await AsyncStorage.setItem(HAS_LAUNCHED_KEY, 'true');
+
+    // 4. Navegar para criar conta ou fazer login
+    navigation.replace('Register');
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -272,11 +292,11 @@ export default function OnboardingScreen({ navigation }) {
           activeOpacity={0.85}
         >
           <Text style={styles.nextBtnText}>
-            {step === TOTAL ? 'Entrar na app 🚀' : 'Continuar →'}
+            {step === TOTAL ? 'Criar conta 🚀' : 'Continuar →'}
           </Text>
         </TouchableOpacity>
         {step < TOTAL && (
-          <TouchableOpacity onPress={step === TOTAL ? finish : () => setStep(s => s + 1)}>
+          <TouchableOpacity onPress={() => setStep(s => s + 1)}>
             <Text style={styles.skipBtn}>Saltar</Text>
           </TouchableOpacity>
         )}

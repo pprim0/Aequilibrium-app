@@ -5,6 +5,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme';
 import { getAppBootstrapState } from '../services/profileService';
+import { getOnboardingDraft } from '../services/onboardingService';
 import { isBiometricEnabled, authenticateWithBiometrics } from '../utils/biometrics';
 
 import HomeScreen from '../screens/HomeScreen';
@@ -21,6 +22,10 @@ import BiometricScreen from '../screens/BiometricScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Flag local persistente — indica que o utilizador já viu o onboarding
+// neste dispositivo. Não depende de sessão nem de backend.
+const HAS_LAUNCHED_KEY = 'momentum_has_launched';
 
 function TabIcon({ emoji, focused }) {
   return (
@@ -61,6 +66,11 @@ function MainTabs() {
 }
 
 export default function RootNavigator() {
+  // Estados possíveis:
+  // 'loading'  — a verificar sessão e estado
+  // 'welcome'  — primeira utilização, sem sessão → mostra Splash/Welcome/Onboarding
+  // 'auth'     — sem sessão, mas já viu onboarding (ou é user que fez logout) → mostra Login/Register
+  // 'main'     — sessão ativa, tudo ok → mostra app principal
   const [state, setState] = useState('loading');
 
   useEffect(() => {
@@ -69,34 +79,39 @@ export default function RootNavigator() {
 
   async function checkInitialState() {
     try {
-      // 1. Onboarding feito?
-      const onboardingDone = await AsyncStorage.getItem('onboarding_done');
-      if (!onboardingDone) {
-        setState('onboarding');
-        return;
-      }
+      // 1. Verificar sessão no Supabase
+      const { session, profile } = await getAppBootstrapState();
 
-      // 2. Sessão ativa?
-      const session = await getSession();
       if (!session) {
-        setState('auth');
+        // Sem sessão — verificar se é primeira vez ou user que voltou
+        const hasLaunched = await AsyncStorage.getItem(HAS_LAUNCHED_KEY);
+        const draft = await getOnboardingDraft();
+
+        if (!hasLaunched && !draft) {
+          // Nunca abriu a app → mostrar onboarding completo
+          setState('welcome');
+        } else {
+          // Já viu onboarding ou tem draft pendente → ir direto ao login
+          setState('auth');
+        }
         return;
       }
 
-      // 3. Biometria ativa?
+      // 2. Tem sessão — verificar biometria
       const biometricEnabled = await isBiometricEnabled();
       if (biometricEnabled) {
         const success = await authenticateWithBiometrics();
         if (!success) {
+          // Falhou biometria → pedir login manual
           setState('auth');
           return;
         }
       }
 
-      // Tudo ok → app principal
+      // 3. Tudo ok → app principal
       setState('main');
     } catch (e) {
-      console.error('Erro ao verificar estado:', e);
+      console.error('Erro ao verificar estado inicial:', e);
       setState('auth');
     }
   }
@@ -112,8 +127,8 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
 
-      {/* Onboarding — só na primeira vez */}
-      {state === 'onboarding' && (
+      {/* Onboarding — só na primeira utilização */}
+      {state === 'welcome' && (
         <>
           <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -121,8 +136,8 @@ export default function RootNavigator() {
         </>
       )}
 
-      {/* Auth — sem sessão */}
-      {(state === 'auth' || state === 'onboarding') && (
+      {/* Auth — sem sessão (pós-onboarding ou user que voltou) */}
+      {(state === 'auth' || state === 'welcome') && (
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
@@ -130,7 +145,7 @@ export default function RootNavigator() {
         </>
       )}
 
-      {/* App principal */}
+      {/* App principal — sempre disponível para navigation.replace('Main') funcionar */}
       <Stack.Screen name="Main" component={MainTabs} />
 
     </Stack.Navigator>

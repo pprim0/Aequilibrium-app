@@ -6,9 +6,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
-import { signUp, getSession } from '../services/authService';
+import { signUp } from '../services/authService';
 import { getOnboardingDraft, applyOnboardingDraftToUser } from '../services/onboardingService';
-import { setBiometricEnabled, isBiometricAvailable } from '../utils/biometrics';
+import { isBiometricAvailable } from '../utils/biometrics';
 import { useShake } from '../utils/animations';
 
 export default function RegisterScreen({ navigation }) {
@@ -39,7 +39,27 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
     setError('');
     try {
-      await signUp({ email: email.trim(), password, name: name.trim() });
+      // 1. Criar conta
+      const data = await signUp({ email: email.trim(), password, name: name.trim() });
+
+      // 2. Aplicar draft do onboarding (se existir)
+      const userId = data?.user?.id;
+      if (userId) {
+        const draft = await getOnboardingDraft();
+        if (draft) {
+          try {
+            // Adicionar o nome ao draft (recolhido aqui no registo, não no onboarding)
+            draft.name = name.trim();
+            await applyOnboardingDraftToUser(userId, draft);
+          } catch (draftError) {
+            // Se falhar a aplicação do draft, não bloquear o registo
+            // O utilizador entra na app e pode configurar depois
+            console.warn('Aviso: não foi possível aplicar o draft do onboarding:', draftError);
+          }
+        }
+      }
+
+      // 3. Verificar se biometria está disponível
       const biometricAvailable = await isBiometricAvailable();
       if (biometricAvailable) {
         navigation.replace('BiometricSetup');

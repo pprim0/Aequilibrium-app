@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
 import { signIn } from '../services/authService';
+import { getMyProfile } from '../services/profileService';
 import { getOnboardingDraft, applyOnboardingDraftToUser } from '../services/onboardingService';
 import { useShake } from '../utils/animations';
 
@@ -26,7 +27,28 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     setError('');
     try {
-      await signIn({ email: email.trim(), password });
+      // 1. Fazer login
+      const data = await signIn({ email: email.trim(), password });
+      const userId = data?.user?.id;
+
+      // 2. Verificar se há draft pendente para aplicar
+      if (userId) {
+        try {
+          const profile = await getMyProfile();
+          const draft = await getOnboardingDraft();
+
+          if (draft && profile && !profile.onboarding_completed) {
+            // Tem draft e onboarding não foi completado → aplicar
+            draft.name = draft.name || profile.name;
+            await applyOnboardingDraftToUser(userId, draft);
+          }
+        } catch (profileError) {
+          // Se falhar a verificação do profile, não bloquear o login
+          console.warn('Aviso: não foi possível verificar/aplicar draft:', profileError);
+        }
+      }
+
+      // 3. Entrar na app
       navigation.replace('Main');
     } catch (e) {
       setError('Email ou password incorretos.');

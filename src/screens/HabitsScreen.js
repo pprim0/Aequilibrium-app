@@ -7,7 +7,6 @@ import { getTodayHabits, toggleHabit, deleteHabit } from '../services/habitServi
 import AddHabitModal from '../components/AddHabitModal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import SwipeableHabitCard from '../components/SwipeableHabitCard';
-import { deleteHabit } from '../store/habits';
 import { cancelHabitReminder } from '../utils/notifications';
 
 // ── Helpers ───────────────────────────────────────────────
