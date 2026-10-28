@@ -40,3 +40,7 @@ yarn-error.*
 /ios
 /android
 .env
+
+# Momentum: personal data stays out of the (public) repository
+supabase/seed/*.local.sql
+supabase/tests/local/

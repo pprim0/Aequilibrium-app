@@ -47,12 +47,15 @@ async function deleteUserData(admin: ReturnType<typeof createClient>, userId: st
     }
   }
 
+  // The Momentum Web tables reference auth.users with ON DELETE CASCADE, so deleting the
+  // auth user below removes them; only the legacy tables are cleaned explicitly.
   const deletions = [
-    ['orçamentos', () => admin.from('budgets').delete().eq('user_id', userId)],
+    ['orçamentos (antigos)', () => admin.from('legacy_budgets').delete().eq('user_id', userId)],
+    ['transações (antigas)', () => admin.from('legacy_transactions').delete().eq('user_id', userId)],
+    ['metas financeiras (antigas)', () => admin.from('legacy_financial_goals').delete().eq('user_id', userId)],
     ['transações', () => admin.from('transactions').delete().eq('user_id', userId)],
-    ['metas financeiras', () => admin.from('financial_goals').delete().eq('user_id', userId)],
     ['hábitos', () => admin.from('habits').delete().eq('user_id', userId)],
-    ['categorias financeiras', () => admin.from('finance_categories').delete().eq('user_id', userId)],
+    ['categorias financeiras (antigas)', () => admin.from('legacy_finance_categories').delete().eq('user_id', userId)],
     ['categorias de hábitos', () => admin.from('habit_categories').delete().eq('user_id', userId)],
     ['preferências', () => admin.from('user_preferences').delete().eq('user_id', userId)],
     ['perfil', () => admin.from('profiles').delete().eq('id', userId)],

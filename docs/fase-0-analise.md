@@ -76,21 +76,49 @@ Regras confirmadas nas fórmulas e que vão ser reproduzidas tal como estão:
 
 ## 4. Riscos e bloqueios
 
-1. **Não há Node.js nem Python nesta máquina.** Sem Node não se instala nem se testa Next.js, Vitest, Playwright ou a CLI do Supabase. Para correr os testes SQL (pgTAP e RLS) localmente também é preciso Docker; a alternativa é um projeto Supabase só para testes.
-2. **O esquema atual do Supabase não está no repositório.** Antes da fase 2 preciso do resultado de `npx supabase db dump --schema public` ou de acesso ao projeto. Sem isso, a migração das tabelas antigas é feita às cegas.
-3. **A pasta não é um repositório git.** Proponho fazer `git init` e um commit inicial antes de mexer em código, para se poder voltar atrás.
+1. ~~Não há Node.js nesta máquina~~ → resolvido: Node 24 instalado. Os testes SQL correm em **PGlite** (Postgres 17 em WebAssembly, dentro do Node), por isso não é preciso Docker.
+2. ~~Esquema do Supabase fora do repositório~~ → resolvido: colunas obtidas pelo SQL Editor e reconstruídas em `supabase/tests/fixtures/01_existing_schema.sql`. As políticas e restrições reais não foram exportadas; a reconstrução usa uma aproximação.
+3. ~~A pasta não é um repositório git~~ → resolvido: ligada a `github.com/pprim0/Aequilibrium-app`, ramo `main`.
 4. Web Push no iPhone só funciona com a app adicionada ao ecrã principal, em iOS 16.4 ou superior. Fica documentado.
+5. **O repositório no GitHub é público.** Por isso os valores pessoais (saldos, dívidas, ordenado, plano) estão num ficheiro que não vai para o git: `supabase/seed/preset_primo.local.sql`.
 
-## 5. Decisões pendentes (preciso de resposta antes da fase 2)
+## 5. Decisões
 
-- **D1 — "Livre para gastar" com rendimento parcial.** Com os dados reais de hoje, o Excel dá **−730,23 €**. O motivo é que o extra de 300 € já está registado, o que desativa o aviso "Regista o rendimento", mas o ordenado de novembro ainda não entrou. Mesmo assim, o plano de 550 € em dívidas, a renda e os outros fixos já são descontados. Proposta: o aviso passa a depender do **rendimento esperado** do mês (ordenado + subsídio, definidos como rendimentos recorrentes). Enquanto esse rendimento não entrar, mostrar "Livre previsto" rotulado como estimativa. Alternativa: copiar o Excel tal como está.
-- **D2 — Ordenado (decidido).** Os rendimentos esperados são dados do utilizador, editáveis em Definições. Ficam numa tabela `income_sources` (nome, categoria, valor, dia previsto, válido de / até), com tantos valores e períodos quantos quiseres, e nada fica fixo no código. O preset "Primo" só sugere os valores iniciais (1038 € até dez 2026, 1088 € a partir de jan 2027, subsídio 200 €), que podes alterar a qualquer momento. A meta do fundo lê estes valores através da `target_formula` (`includes: ["salary","meal_allowance"]`), usando o valor em vigor no mês corrente ou o mais recente; a escolha também é configurável.
-- **D3 — Dia de pagamento do Spotify e da Netflix.** No Excel estão sem dia ("Define o dia"). O Spotify conta como "Por pagar", e por isso já está reservado. Que dia uso para cada um?
-- **D4 — Organização das pastas.** `web/` ao lado da app Expo, e a app Expo arquivada na fase 6. Confirmas?
+- **D1 — "Livre para gastar" com rendimento parcial (configurável).** Com os dados reais de hoje, a regra do Excel dá **−730,23 €**: o extra de 300 € já está registado, o que desativa o aviso "Regista o rendimento", mas o ordenado de novembro ainda não entrou. A base de dados devolve sempre os dois valores: `free` (regra do Excel) e `free_projected` (soma o rendimento esperado que ainda falta, aqui 1238 € → **507,77 €**). O que a app mostra depende de `user_settings.free_to_spend_mode`: `projected` (por defeito) ou `actual`.
+- **D2 — Ordenado (decidido).** Os rendimentos esperados são dados do utilizador, editáveis em Definições. Ficam numa tabela `income_sources` (nome, categoria, valor, dia previsto, válido de / até), com tantos valores e períodos quantos quiseres, e nada fica fixo no código. O preset "Primo" só sugere os valores iniciais: 1038 € até 24/12/2026, 1088 € a partir de 25/12/2026 (início do mês financeiro de jan 2027) e subsídio de 200 €. A meta do fundo lê estes valores através da `target_formula` (`"at": "latest"` ou `"current"`).
+- **D3 — Dia de pagamento do Spotify e da Netflix (em aberto).** Ficaram sem dia, como no Excel. Sem dia, o Spotify conta como "por pagar" e nunca como "em atraso". Basta definir o dia mais tarde, nas Definições.
+- **D4 — Pastas.** `web/` ao lado da app Expo; a app Expo é arquivada na fase 6.
 
-## 6. Plano da fase 1 (depois das respostas)
+## 6. Fase 2 — base de dados (feita)
 
-1. `git init`, instalar Node LTS e criar `web/` (Next.js, TS, Tailwind, shadcn, i18n pt-PT, tokens do tema).
-2. Obter o esquema atual e escrever a migração base com as tabelas da §3, RLS em todas, índices e a restrição `UNIQUE (user_id, rule_id, period_key)` no `xp_ledger`.
-3. Funções e views de cálculo da §3, com testes pgTAP para o cenário de referência (205,60 €) e para os restantes casos da secção 8 do enunciado.
-4. Seeds com os presets "Primo" (incluindo Barbeiro e Apple Pay) e "Genérico".
+**O que foi feito**
+
+| Ficheiro | Conteúdo |
+|---|---|
+| `supabase/migrations/20261028120000_momentum_core.sql` | Renomeia as tabelas financeiras antigas para `legacy_*` (sem perder dados). Cria as 22 tabelas novas com RLS. Os FKs compostos `(id, user_id)` impedem apontar para dados de outro utilizador. `xp_ledger` tem `UNIQUE (user_id, rule_id, period_key)`, e o cliente não consegue escrever XP. O tipo do movimento vem da categoria e a conta vem do método de pagamento ou da conta principal (trigger). |
+| `supabase/migrations/20261028120100_momentum_calc.sql` | Fonte única dos números: `fin_month_key`, `account_balances`, `money_in_accounts`, `month_totals`, `spent_on`, `recurring_status`, `installment_status`, `expected_income`, `goal_target`, `free_to_spend`, `budget_usage`, `transaction_alerts`, `debt_summary`, `goal_progress`, `investment_summary`, `allocation_comparison`, `month_projection`. Inclui também o trigger que só aceita a revisão diária de hoje ou de ontem. |
+| `supabase/migrations/20261028120200_momentum_presets.sql` | `apply_setup(json)` (o onboarding envia um preset editado) e `apply_preset(chave)`. Presets públicos: `generic` e `gamification_default` (XP, níveis, missões, conquistas e o hábito de sistema "Revisão financeira do dia"). |
+| `supabase/seed/preset_primo.local.sql` (privado) | Preset "Primo" com os valores do Excel, incluindo Barbeiro e Apple Pay. Fica visível só para a tua conta. |
+| `supabase/functions/delete-account` | Atualizada para os nomes `legacy_*`; as tabelas novas apagam-se em cascata com o utilizador. |
+
+**Como testar**
+
+```bash
+cd supabase/tests
+npm install
+npm test
+```
+
+**Resultados (28/10/2026): 28 testes, 28 passaram.** São 25 testes no repositório e 3 privados com os teus dados reais.
+
+- Cenário de referência: livre **205,60 €**, rendimentos 1238, despesas 112,40, dívidas 470, poupança 50, reservado 100, saldo 1175,60, gasto hoje 112,40, duplicado só nos cafés e cartão a 0.
+- Transferência, poupança, compra Klarna, prestação paga antes do prazo, Netflix alternada, fixo pago a 30/10 a contar para novembro, investimento (+10 €), XP sem duplicados, RLS, revisão só hoje/ontem, apagar o utilizador e presets.
+- Dados reais do Excel (privado): rendimento 300, despesas 35,44, por pagar 303,82, reservado 450, livre **−730,23 €** (igual ao Excel), conta à ordem 24,69 €, Klarna 39,97 € e meta do fundo 2600 €.
+
+**Limitações conhecidas**
+
+- **As migrações ainda não foram aplicadas ao Supabase real.** Ao aplicá-las, as tabelas antigas passam a `legacy_*` e os ecrãs de finanças da app Expo deixam de funcionar.
+- O motor de gamificação (atribuir XP, streak, missões, conquistas, pg_cron) é a fase 5. Por agora existem as tabelas, as definições e a garantia de unicidade.
+- Os testes correm em PGlite com uma reconstrução do esquema; as políticas e restrições reais das tabelas antigas não foram verificadas.
+- `momentum_today()` aceita a definição `momentum.today` para testes. Os clientes da API não conseguem alterá-la, mas convém confirmar isso no Supabase real.
+- Os dados antigos (`legacy_*`) não são copiados para o modelo novo. O histórico vem do Excel, com o importador da fase 6.
