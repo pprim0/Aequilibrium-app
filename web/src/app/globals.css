@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/* Tokens from the Momentum theme (src/theme in the Expo app), plus a dark variant. */
+:root {
+  --primary: #2a6049;
+  --primary-mid: #3d8b6a;
+  --primary-light: #7dc9a8;
+  --primary-pale: #e8f5ee;
+  --bg: #f5f4f0;
+  --card: #ffffff;
+  --text: #141414;
+  --text-2: #5c6370;
+  --text-3: #8a929c;
+  --border: #eaebe8;
+  --success: #2f8a5b;
+  --warning: #b77900;
+  --warning-pale: #fef3c7;
+  --orange: #c4580e;
+  --orange-pale: #ffedd5;
+  --error: #c43d3d;
+  --error-pale: #fee8e8;
+  --info: #2f6fb5;
+  --info-pale: #e8f1fb;
+  --muted: #f0efea;
+  --on-primary: #ffffff;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #7dc9a8;
+    --primary-mid: #5fb38f;
+    --primary-light: #3d8b6a;
+    --primary-pale: #1c3328;
+    --bg: #111412;
+    --card: #1a1e1c;
+    --text: #eef0ee;
+    --text-2: #b4bcb7;
+    --text-3: #8b948f;
+    --border: #2b312e;
+    --success: #6fcf97;
+    --warning: #f0c14b;
+    --warning-pale: #3a3112;
+    --orange: #f59e5b;
+    --orange-pale: #3d2414;
+    --error: #f08585;
+    --error-pale: #3d1c1c;
+    --info: #8bb8ea;
+    --info-pale: #172a3d;
+    --muted: #222825;
+    --on-primary: #0d1f17;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-mid: var(--primary-mid);
+  --color-primary-light: var(--primary-light);
+  --color-primary-pale: var(--primary-pale);
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-border: var(--border);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-pale: var(--warning-pale);
+  --color-orange: var(--orange);
+  --color-orange-pale: var(--orange-pale);
+  --color-error: var(--error);
+  --color-error-pale: var(--error-pale);
+  --color-info: var(--info);
+  --color-info-pale: var(--info-pale);
+  --color-muted: var(--muted);
+  --color-on-primary: var(--on-primary);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Visible keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
