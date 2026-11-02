@@ -44,7 +44,7 @@ function ReviewForm({ checkins, today, onDone }: { checkins: Checkin[]; today: s
   const find = (day: string) => checkins.find((c) => c.day === day);
   const [v, setV] = useState<CheckinInput>(fromCheckin(today, find(today)));
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<{ xp: number; unlocked: string[] } | null>(null);
+  const [saved, setSaved] = useState<{ unlocked: string[] } | null>(null);
   const [pending, startTransition] = useTransition();
 
   function submit(event: React.FormEvent) {
@@ -52,7 +52,7 @@ function ReviewForm({ checkins, today, onDone }: { checkins: Checkin[]; today: s
     setError(null);
     startTransition(async () => {
       const result = await saveCheckin(v);
-      if (result.ok) setSaved({ xp: result.xpChange, unlocked: result.unlocked });
+      if (result.ok) setSaved({ unlocked: result.unlocked });
       else setError(result.error);
     });
   }
@@ -61,7 +61,7 @@ function ReviewForm({ checkins, today, onDone }: { checkins: Checkin[]; today: s
     return (
       <div className="flex flex-col gap-4">
         <p role="status" className="text-lg font-bold text-success">
-          {t.review.savedXp(saved.xp)}
+          {t.review.saved}
         </p>
         {saved.unlocked.length > 0 && <p className="font-semibold">{t.review.unlocked(saved.unlocked.join(", "))}</p>}
         <Button onClick={onDone}>{t.common.close}</Button>

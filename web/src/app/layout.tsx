@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { HIDE_VALUES_SCRIPT } from "@/components/ui/hide-values";
 import { t } from "@/i18n";
 import "./globals.css";
 
@@ -25,8 +26,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-PT" className={`${jakarta.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+    <html lang="pt-PT" className={`${jakarta.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full">
+        <script dangerouslySetInnerHTML={{ __html: HIDE_VALUES_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }

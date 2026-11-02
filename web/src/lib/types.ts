@@ -18,6 +18,8 @@ export type Account = {
   opening_balance: Numeric;
   opening_date: string;
   debt_strategy: "plan" | "installments" | null;
+  is_credit_card?: boolean;
+  credit_limit?: Numeric | null;
   sort_order: number;
   is_archived: boolean;
 };
@@ -56,7 +58,28 @@ export type Settings = {
   default_account_id: string | null;
   timezone: string;
   free_to_spend_mode: "projected" | "actual";
+  show_habits: boolean;
 };
+
+export type Notification = {
+  kind: "payment_overdue" | "payment_due" | "budget_limit" | "payment_no_day" | "weekly_review";
+  name: string | null;
+  amount: Numeric | null;
+  budget: Numeric | null;
+  due_date: string | null;
+  level: string | null;
+};
+
+export type GoalPlan = {
+  goal_id: string;
+  months_left: number | null;
+  monthly_needed: Numeric | null;
+  monthly_average: Numeric | null;
+  estimated_date: string | null;
+  on_track: boolean | null;
+};
+
+export type BudgetTrack = { total: number; within: number; streak: number };
 
 export type Transaction = {
   id: string;
@@ -107,10 +130,26 @@ export type AccountBalance = {
   debt_outstanding: Numeric | null;
 };
 
+export type DebtOverview = {
+  outstanding: Numeric;
+  borrowed: Numeric;
+  paid: Numeric;
+  progress: Numeric | null;
+  open_count: number;
+  cards: number;
+  available_credit: Numeric | null;
+  paid_this_month: Numeric;
+  planned_this_month: Numeric | null;
+  next_due: { name: string; amount: Numeric; date: string; overdue: boolean } | null;
+};
+
 export type DebtSummary = {
   account_id: string;
   name: string;
   debt_strategy: string;
+  is_credit_card: boolean;
+  credit_limit: Numeric | null;
+  available_credit: Numeric | null;
   initial: Numeric;
   new_purchases: Numeric;
   total_borrowed: Numeric;

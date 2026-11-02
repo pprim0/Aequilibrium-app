@@ -111,3 +111,19 @@ dialog::backdrop {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* "Ocultar valores": every amount carries .tabular; form fields stay readable. */
+html[data-hide-values] .tabular:not(input),
+html[data-hide-values] .tabular:not(input) * {
+  color: transparent !important;
+  user-select: none;
+}
+
+html[data-hide-values] .tabular:not(input) {
+  background: var(--muted);
+  border-radius: 6px;
+}
+
+html[data-hide-values] .recharts-wrapper {
+  visibility: hidden;
+}

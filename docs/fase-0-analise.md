@@ -222,3 +222,49 @@ O Excel atualizado passou a ser a referência e substitui a regra original do en
 **Testes:** 62 testes SQL, incluindo descanso e quebra da streak, XP sem duplicados, missões, conquistas com a data real e RLS. Com os dados reais: 110 XP, nível 2 e 3 conquistas, iguais ao Excel. 19 testes da app, lint e build sem erros.
 
 **Limitações:** as definições de XP, níveis, missões e conquistas são dados, mas ainda não têm editor na app (Definições). Sem `pg_cron`, semanas terminadas só são avaliadas ao abrir a app. Lembretes de hábitos ficam para o Web Push (Fase 6).
+
+## 13. Fase 6 — plano
+
+**Parte A:** Definições (editores de tudo o que é configurável), exportação de dados, apagar conta e onboarding com preset editável.
+**Parte B:** importador de `.xlsx`/CSV, PWA instalável, Web Push e ecrãs vazios.
+**Parte C:** limpeza da app Expo e do SQLite.
+
+Os editores usam uma configuração única por entidade, e o servidor só aceita os campos dessa lista. A validação é uma função pura com testes.
+
+### Fase 6, parte A — resumo
+
+- **Definições:** índice e secções para geral, rendimentos esperados, plano mensal, grupos, categorias, atalhos, métodos, regra de distribuição, XP, níveis, missões e conquistas. O servidor só escreve os campos e tabelas da lista em `settings-entities.ts`. As condições das regras e conquistas não se editam na app.
+- **Dados:** exportação de movimentos em CSV (pt-PT) e cópia completa em JSON; apagar conta com confirmação escrita.
+- **Onboarding:** preset → contas e saldos → dívidas → rendimentos → envelopes → hábitos → objetivos → confirmação. `finalizeSetup` aplica renomeações e retira referências ao que foi removido.
+
+**Testes:** 34 da app, 65 SQL (incluindo o documento do onboarding no `apply_setup` real). Assistente e editores vistos a 375 px com dados de exemplo.
+
+**Limitações:** gravação pelos ecrãs, exportação e onboarding com conta nova por testar com sessão real; apagar conta exige publicar a função `delete-account`; a parte B (importador, PWA, Web Push) e a parte C (limpeza) estão por fazer.
+
+### Ajustes depois da revisão comercial
+
+- **Compromissos** (antes Dívidas): resumo no topo, cartões de crédito com plafond e crédito disponível, dívidas com as prestações dentro de cada uma. Migração `20261104120000_momentum_credit_cards.sql`.
+- **Início:** mais limpo, com contas e botão para ocultar valores. Fixos passaram para Orçamento.
+- **Registar:** descrição em primeiro lugar; os atalhos saíram do formulário, mas os dados continuam guardados.
+- **Definições:** essencial à vista, o resto em Avançado e Mais opções; nada foi retirado.
+
+## Foco no dinheiro (notificações, metas e progresso real)
+
+**O que mudou**
+- Sino no topo, sempre visível: pagamentos em atraso ou a vencer em 3 dias, limites do orçamento, pagamentos fixos sem dia e revisão semanal (a partir de sexta). Vem da função SQL `notifications()`; não há estado "lido": cada aviso desaparece quando o assunto fica resolvido.
+- Barra do telemóvel: Início, Movimentos, +, Compromissos, Mais.
+- Hábitos passou a opcional (`user_settings.show_habits`, em Definições > Geral). Fica ligado para quem já tinha hábitos próprios e desligado para contas novas.
+- Objetivos mostram quanto pôr por mês e se o ritmo chega (`goal_plans()`). As dívidas abertas aparecem como metas automáticas, sem data-alvo própria.
+- Progresso mostra dívida paga, meses dentro do orçamento (`budget_track()`), revisões seguidas e marcos. O XP deixou de aparecer.
+
+**O que não mudou**
+- Nenhum dado foi apagado. XP, níveis e missões continuam a ser calculados na base de dados, e as páginas `/definicoes/xp`, `/definicoes/niveis` e `/definicoes/missoes` continuam a abrir, mas saíram da lista.
+
+**Como testar**
+1. Correr `supabase/dev/update_foco.sql` no SQL Editor.
+2. Abrir o sino e seguir um aviso até à página respetiva.
+3. Ligar e desligar Hábitos em Definições > Geral.
+
+**Limitações**
+- O orçamento não tem histórico: os meses passados são comparados com o orçamento atual.
+- As notificações só existem dentro da app; os avisos push ficam para a parte B da Fase 6.

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Ellipsis, Home, Lightbulb, Repeat, Trophy, ListOrdered, LogOut, PieChart, Plus, Target, Wallet, type LucideIcon } from "lucide-react";
+import { CreditCard, Ellipsis, Home, Lightbulb, Repeat, Trophy, ListOrdered, LogOut, PieChart, Plus, Settings, Target, Wallet, type LucideIcon } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { useTxForm } from "@/components/transactions/tx-form-provider";
 import { signOut } from "@/app/actions/auth";
@@ -12,20 +12,23 @@ import { t } from "@/i18n";
 
 type Item = { href: string; label: string; icon: LucideIcon };
 
-const items: Item[] = [
-  { href: "/", label: t.nav.home, icon: Home },
-  { href: "/movimentos", label: t.nav.transactions, icon: ListOrdered },
-  { href: "/habitos", label: t.nav.habits, icon: Repeat },
-  { href: "/orcamento", label: t.nav.budget, icon: PieChart },
-  { href: "/contas", label: t.nav.accounts, icon: Wallet },
-  { href: "/objetivos", label: t.nav.goals, icon: Target },
-  { href: "/insights", label: t.nav.insights, icon: Lightbulb },
-  { href: "/progresso", label: t.nav.progress, icon: Trophy },
-];
+// On phones only the first three stay in the bar; the others live under "Mais".
+const BAR_ITEMS = 3;
 
-// On phones only these stay in the bar; the others live under "Mais".
-const barItems = items.slice(0, 3);
-const moreItems = items.slice(3);
+function navItems(showHabits: boolean): Item[] {
+  return [
+    { href: "/", label: t.nav.home, icon: Home },
+    { href: "/movimentos", label: t.nav.transactions, icon: ListOrdered },
+    { href: "/compromissos", label: t.nav.debts, icon: CreditCard },
+    { href: "/orcamento", label: t.nav.budget, icon: PieChart },
+    { href: "/contas", label: t.nav.accounts, icon: Wallet },
+    { href: "/objetivos", label: t.nav.goals, icon: Target },
+    { href: "/insights", label: t.nav.insights, icon: Lightbulb },
+    { href: "/progresso", label: t.nav.progress, icon: Trophy },
+    ...(showHabits ? [{ href: "/habitos", label: t.nav.habits, icon: Repeat }] : []),
+    { href: "/definicoes", label: t.nav.settings, icon: Settings },
+  ];
+}
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -63,8 +66,9 @@ function NavLink({ item, pathname, onClick }: { item: Item; pathname: string; on
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ showHabits }: { showHabits: boolean }) {
   const pathname = usePathname();
+  const items = navItems(showHabits);
   const { openNew, ready } = useTxForm();
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-2 border-r border-border bg-card px-3 py-6 md:flex">
@@ -90,8 +94,11 @@ export function Sidebar() {
   );
 }
 
-export function BottomNav() {
+export function BottomNav({ showHabits }: { showHabits: boolean }) {
   const pathname = usePathname();
+  const items = navItems(showHabits);
+  const barItems = items.slice(0, BAR_ITEMS);
+  const moreItems = items.slice(BAR_ITEMS);
   const { openNew, ready } = useTxForm();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = moreItems.some((item) => isActive(pathname, item.href));

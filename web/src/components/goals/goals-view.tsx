@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { Card, EmptyState, SectionTitle } from "@/components/ui/card";
 import { Meter } from "@/components/ui/meter";
 import { AssetDialog, GoalDialog, ValuationDialog } from "./goal-forms";
 import { formatDate, formatMoney, monthLabel } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { GoalHistory, GoalProgress, GoalRow, InvestmentSummary } from "@/lib/types";
+import type { DebtSummary, GoalHistory, GoalPlan, GoalProgress, GoalRow, InvestmentSummary } from "@/lib/types";
 import { t } from "@/i18n";
 
 const statusTone: Record<string, Tone> = {
@@ -24,20 +25,48 @@ function signedMoney(value: number | string) {
   return `${n > 0 ? "+" : ""}${formatMoney(n)}`;
 }
 
+function PlanLine({ goal, plan }: { goal: GoalProgress; plan?: GoalPlan }) {
+  if (goal.status === "reached" || goal.status === "no_category" || goal.status === "no_target") return null;
+  const needed = plan?.monthly_needed ?? null;
+  return (
+    <div className="text-sm">
+      {needed !== null && goal.target_date ? (
+        <p className="tabular font-semibold">{t.goals.planNeeded(formatMoney(needed), formatDate(goal.target_date))}</p>
+      ) : !goal.target_date ? (
+        <p className="text-text-2">{t.goals.planNoDate}</p>
+      ) : null}
+      {plan?.monthly_average != null ? (
+        <p className="tabular text-xs text-text-2">
+          {t.goals.planAverage(formatMoney(plan.monthly_average))}
+          {plan.estimated_date && ` · ${t.goals.planPace(formatDate(plan.estimated_date))}`}
+        </p>
+      ) : (
+        <p className="text-xs text-text-2">{t.goals.planStart}</p>
+      )}
+    </div>
+  );
+}
+
 export function GoalsView({
   goals,
+  plans,
+  debts,
   rows,
   history,
   investments,
   today,
 }: {
   goals: GoalProgress[];
+  plans: GoalPlan[];
+  debts: DebtSummary[];
   rows: GoalRow[];
   history: Record<string, GoalHistory[]>;
   investments: InvestmentSummary[];
   today: string;
 }) {
   const rowById = new Map(rows.map((r) => [r.id, r]));
+  const planById = new Map(plans.map((p) => [p.goal_id, p]));
+  const openDebts = debts.filter((d) => d.status !== "paid" && !d.is_credit_card).sort((a, b) => Number(a.outstanding) - Number(b.outstanding));
   const totalDeposited = investments.reduce((s, i) => s + Number(i.deposited), 0);
   const valued = investments.filter((i) => i.current_value !== null);
   const totalGain = valued.reduce((s, i) => s + Number(i.gain), 0);
@@ -65,7 +94,11 @@ export function GoalsView({
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Badge tone={statusTone[g.status]}>{t.goals.status[g.status]}</Badge>
+                    {g.status === "in_progress" && planById.get(g.goal_id)?.on_track != null ? (
+                      <Badge tone={planById.get(g.goal_id)?.on_track ? "success" : "warning"}>{planById.get(g.goal_id)?.on_track ? t.goals.onTrack : t.goals.behind}</Badge>
+                    ) : (
+                      <Badge tone={statusTone[g.status]}>{t.goals.status[g.status]}</Badge>
+                    )}
                     {rowById.get(g.goal_id) && <GoalDialog goal={rowById.get(g.goal_id)} />}
                   </div>
                 </div>
@@ -77,6 +110,11 @@ export function GoalsView({
                   </p>
                 </div>
                 <Meter value={g.progress === null ? null : Number(g.progress)} label={g.name} />
+                <PlanLine goal={g} plan={planById.get(g.goal_id)} />
+
+                <details>
+                  <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary">{t.goals.details}</summary>
+                  <div className="flex flex-col gap-3 pb-1">
                 <p className="text-xs text-text-2">
                   {t.goals.remaining}: <span className="tabular font-semibold">{formatMoney(g.remaining)}</span> · {t.goals.howToDeposit}
                 </p>
@@ -98,8 +136,8 @@ export function GoalsView({
                 )}
 
                 {(history[g.goal_id]?.length ?? 0) > 0 && (
-                  <details>
-                    <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary">{t.goals.history}</summary>
+                  <div>
+                    <h4 className="mb-1 text-sm font-semibold text-text-2">{t.goals.history}</h4>
                     <div className="overflow-x-auto">
                       <table className="tabular w-full text-sm">
                         <thead className="text-left text-xs text-text-3">
@@ -122,13 +160,38 @@ export function GoalsView({
                         </tbody>
                       </table>
                     </div>
-                  </details>
+                  </div>
                 )}
+                  </div>
+                </details>
               </Card>
             ))}
           </div>
         )}
       </section>
+
+      {openDebts.length > 0 && (
+        <section aria-labelledby="sec-debt-goals">
+          <SectionTitle>
+            <span id="sec-debt-goals">{t.goals.debtGoals}</span>
+          </SectionTitle>
+          <ul className="grid gap-3 lg:grid-cols-2">
+            {openDebts.map((d) => (
+              <li key={d.account_id}>
+                <Link href="/compromissos" className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-border bg-card p-4 hover:bg-muted">
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate font-bold">{d.name}</span>
+                    <span className="tabular shrink-0 font-bold text-error">{formatMoney(d.outstanding)}</span>
+                  </span>
+                  {d.progress !== null && <Meter value={Number(d.progress)} label={d.name} />}
+                  <span className="text-xs text-text-2">{d.estimated_end ? t.goals.debtEnd(formatDate(d.estimated_end)) : t.goals.debtNoEnd}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-text-3">{t.goals.debtGoalHint}</p>
+        </section>
+      )}
 
       <section aria-labelledby="sec-investments">
         <SectionTitle action={<AssetDialog />}>

@@ -7,15 +7,13 @@ import { cn } from "@/lib/cn";
 import type { BudgetUsage, CategoryGroup, Category } from "@/lib/types";
 import { t } from "@/i18n";
 
-const levelTone: Record<string, Tone> = { none: "muted", ok: "success", yellow: "warning", orange: "orange", red: "error" };
+const levelTone: Record<string, Tone> = { yellow: "warning", orange: "orange", red: "error" };
 
-function Amounts({ row, alignRight }: { row: BudgetUsage; alignRight?: boolean }) {
-  if (row.budget === null) return <span className="tabular text-sm font-semibold">{formatMoney(row.spent)}</span>;
+function Remaining({ row }: { row: BudgetUsage }) {
   const left = Number(row.budget) - Number(row.spent);
   return (
-    <span className="tabular text-sm">
-      <strong>{t.budget.ofBudget(formatMoney(row.spent), formatMoney(row.budget))}</strong>
-      <span className={cn("block text-xs text-text-2", alignRight && "text-right")}>{left >= 0 ? t.budget.left(formatMoney(left)) : t.budget.over(formatMoney(-left))}</span>
+    <span className={cn("tabular shrink-0 text-sm font-bold", left < 0 && "text-error")}>
+      {left >= 0 ? t.budget.leftShort(formatMoney(left)) : t.budget.overShort(formatMoney(-left))}
     </span>
   );
 }
@@ -35,84 +33,95 @@ export function BudgetView({
   // Income, debt or transfer groups have nothing to budget.
   const shown = groups.filter((g) => expenseGroupIds.has(g.id));
   const ungrouped = categoryRows.filter((c) => !c.group_id);
-  const budgeted = groupRows.filter((g) => g.budget !== null);
+  const budgeted = groupRows.filter((g) => g.budget !== null && shown.some((s) => s.id === g.id));
   const totalBudget = budgeted.reduce((sum, g) => sum + Number(g.budget), 0);
-  const totalSpent = categoryRows.reduce((sum, c) => sum + Number(c.spent), 0);
+  const totalSpent = budgeted.reduce((sum, g) => sum + Number(g.spent), 0);
+  const totalLeft = totalBudget - totalSpent;
   const limitOf = (id: string) => categories.find((c) => c.id === id)?.own_limit ?? null;
 
-  const categoryList = (rows: BudgetUsage[]) => (
-    <ul className="mt-2 divide-y divide-border">
-      {rows.map((c) => (
-        <li key={c.id} className="flex items-center gap-2 py-1.5">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
-              <span className="min-w-0 truncate text-sm font-medium">{c.name}</span>
-              <Amounts row={c} alignRight />
-            </div>
-            {c.budget !== null ? (
-              <div className="mt-1 flex items-center gap-2">
-                <div className="flex-1">
+  const categoryList = (rows: BudgetUsage[]) => {
+    const sorted = [...rows].sort((a, b) => Number(b.spent) - Number(a.spent));
+    return (
+      <ul className="divide-y divide-border">
+        {sorted.map((c) => (
+          <li key={c.id} className="flex min-h-14 items-center gap-2 py-1">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate text-sm font-medium">{c.name}</span>
+                <span className="tabular shrink-0 text-sm font-semibold">
+                  {c.budget !== null ? t.budget.ofBudget(formatMoney(c.spent), formatMoney(c.budget)) : formatMoney(c.spent)}
+                </span>
+              </div>
+              {c.budget !== null && (
+                <div className="mt-1">
                   <Meter value={c.pct === null ? null : Number(c.pct)} level={c.level} label={c.name} />
                 </div>
-                <Badge tone={levelTone[c.level]}>{t.budget.levels[c.level]}</Badge>
-              </div>
-            ) : (
-              <p className="text-xs text-text-3">{t.budget.noLimit}</p>
-            )}
-          </div>
-          <CategoryLimitDialog id={c.id} name={c.name} limit={limitOf(c.id)} />
-        </li>
-      ))}
-    </ul>
-  );
+              )}
+            </div>
+            <CategoryLimitDialog id={c.id} name={c.name} limit={limitOf(c.id)} />
+          </li>
+        ))}
+      </ul>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
       {totalBudget > 0 ? (
-        <Card>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-bold">{t.budget.total}</h2>
-            <p className="tabular text-sm font-semibold">{t.budget.ofBudget(formatMoney(totalSpent), formatMoney(totalBudget))}</p>
-          </div>
+        <Card className="bg-primary-pale">
+          <p className="text-sm font-semibold text-text-2">{totalLeft >= 0 ? t.budget.canStillSpend : t.budget.overTotal}</p>
+          <p className={cn("tabular text-3xl font-extrabold", totalLeft < 0 && "text-error")}>{formatMoney(Math.abs(totalLeft))}</p>
           <div className="mt-2">
             <Meter value={totalSpent / totalBudget} label={t.budget.total} />
           </div>
+          <p className="tabular mt-1 text-xs text-text-2">{t.budget.spentOf(formatMoney(totalSpent), formatMoney(totalBudget))}</p>
         </Card>
       ) : (
         <EmptyState>{t.budget.empty}</EmptyState>
       )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-3 lg:grid-cols-2">
         {shown.map((g) => {
           const row = groupRows.find((u) => u.id === g.id);
           if (!row) return null;
+          const rows = categoryRows.filter((c) => c.group_id === g.id);
+          const alert = levelTone[row.level];
           return (
-            <Card key={g.id}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-bold">{g.name}</h2>
-                    <Badge tone={levelTone[row.level]}>{row.budget === null ? t.budget.noBudget : t.budget.levels[row.level]}</Badge>
-                  </div>
-                  <div className="mt-1">
-                    <Amounts row={row} />
-                  </div>
-                </div>
+            <Card key={g.id} className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <h2 className="min-w-0 flex-1 truncate font-bold">{g.name}</h2>
+                {alert && <Badge tone={alert}>{t.budget.levels[row.level]}</Badge>}
                 <GroupBudgetDialog id={g.id} name={g.name} budget={g.monthly_budget} />
               </div>
-              {row.budget !== null && (
-                <div className="mt-2">
+              {row.budget !== null ? (
+                <>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="tabular text-xs text-text-2">{t.budget.ofBudget(formatMoney(row.spent), formatMoney(row.budget))}</span>
+                    <Remaining row={row} />
+                  </div>
                   <Meter value={row.pct === null ? null : Number(row.pct)} level={row.level} label={g.name} />
-                </div>
+                </>
+              ) : (
+                <p className="tabular text-sm text-text-2">
+                  {formatMoney(row.spent)} · {t.budget.noBudget}
+                </p>
               )}
-              {categoryList(categoryRows.filter((c) => c.group_id === g.id))}
+              {rows.length > 0 && (
+                <details>
+                  <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary">{t.budget.categories(rows.length)}</summary>
+                  {categoryList(rows)}
+                </details>
+              )}
             </Card>
           );
         })}
         {ungrouped.length > 0 && (
-          <Card>
+          <Card className="flex flex-col gap-1">
             <h2 className="font-bold">{t.budget.other}</h2>
-            {categoryList(ungrouped)}
+            <details>
+              <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary">{t.budget.categories(ungrouped.length)}</summary>
+              {categoryList(ungrouped)}
+            </details>
           </Card>
         )}
       </div>

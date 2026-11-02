@@ -26,8 +26,10 @@ export function InsightsView({
   categories,
   categoryId,
   data,
+  showHabits,
 }: {
   monthKey: number;
+  showHabits: boolean;
   categories: Category[];
   categoryId: string | null;
   data: {
@@ -224,6 +226,7 @@ export function InsightsView({
         )}
       </section>
 
+      {showHabits && (
       <section aria-labelledby="sec-habits">
         <SectionTitle>
           <span id="sec-habits">{t.insights.habits}</span>
@@ -279,6 +282,7 @@ export function InsightsView({
         )}
         <p className="mt-2 text-xs text-text-3">{t.insights.habitsHint}</p>
       </section>
+      )}
     </div>
   );
 }

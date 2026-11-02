@@ -30,6 +30,8 @@ export type AccountInput = {
   openingDate: string;
   debtStrategy: "plan" | "installments" | "";
   archived: boolean;
+  isCreditCard: boolean;
+  creditLimit: string;
 };
 
 export async function saveAccount(input: AccountInput): Promise<ActionResult> {
@@ -41,6 +43,8 @@ export async function saveAccount(input: AccountInput): Promise<ActionResult> {
   if (amount === null) return { ok: false, error: t.tx.errors.amount, field: "amount" };
   if (!ISO_DATE.test(input.openingDate)) return { ok: false, error: t.tx.errors.date, field: "openingDate" };
   const isCredit = input.type === "credit";
+  const creditLimit = input.creditLimit.trim() === "" ? null : parseAmount(input.creditLimit);
+  if (input.creditLimit.trim() !== "" && (creditLimit === null || creditLimit < 0)) return { ok: false, error: t.tx.errors.amount, field: "creditLimit" };
   const row = {
     user_id: userId,
     name: input.name.trim(),
@@ -49,11 +53,37 @@ export async function saveAccount(input: AccountInput): Promise<ActionResult> {
     opening_date: input.openingDate,
     debt_strategy: isCredit ? input.debtStrategy || "plan" : null,
     is_archived: input.archived,
+    is_credit_card: isCredit && input.isCreditCard,
+    credit_limit: isCredit && input.isCreditCard ? creditLimit : null,
   };
-  const { error } = input.id
-    ? await supabase.from("accounts").update(row).eq("id", input.id)
-    : await supabase.from("accounts").insert(row);
+  if (input.id) {
+    const { error } = await supabase.from("accounts").update(row).eq("id", input.id);
+    if (error) return { ok: false, error: error.message };
+    return done();
+  }
+  const { data: created, error } = await supabase.from("accounts").insert(row).select("id").single();
   if (error) return { ok: false, error: error.message };
+  if (isCredit) {
+    const { error: categoryError } = await supabase.from("categories").upsert(
+      {
+        user_id: userId,
+        name: t.debts.paymentCategory(row.name),
+        kind: "debt_payment",
+        nature: "fixed",
+        default_to_account_id: created.id,
+        emoji: "💳",
+      },
+      { onConflict: "user_id,name", ignoreDuplicates: true },
+    );
+    if (categoryError) return { ok: false, error: categoryError.message };
+  }
+  // A card is a way to pay: it shows up in the payment method list straight away.
+  if (row.is_credit_card) {
+    const { error: methodError } = await supabase
+      .from("payment_methods")
+      .upsert({ user_id: userId, name: row.name, account_id: created.id }, { onConflict: "user_id,name", ignoreDuplicates: true });
+    if (methodError) return { ok: false, error: methodError.message };
+  }
   return done();
 }
 

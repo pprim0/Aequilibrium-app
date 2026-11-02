@@ -3,10 +3,12 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/format";
+import type { SetupData } from "@/lib/setup-data";
 import type {
   Account,
   AccountBalance,
   AllocationRow,
+  BudgetTrack,
   BudgetUsage,
   CategoryChange,
   AchievementStatus,
@@ -17,12 +19,15 @@ import type {
   HabitOverview,
   MissionStatus,
   GoalHistory,
+  GoalPlan,
+  Notification,
   GoalProgress,
   GoalRow,
   HabitSpending,
   InvestmentSummary,
   MonthHistory,
   Category,
+  DebtOverview,
   DebtSummary,
   FreeToSpend,
   Installment,
@@ -59,7 +64,7 @@ export const getLookups = cache(async (): Promise<Lookups> => {
   await getUser();
   const supabase = await createClient();
   const [settings, accounts, categories, methods, shortcuts] = await Promise.all([
-    supabase.from("user_settings").select("financial_month_start_day, default_account_id, timezone, free_to_spend_mode").maybeSingle(),
+    supabase.from("user_settings").select("financial_month_start_day, default_account_id, timezone, free_to_spend_mode, show_habits").maybeSingle(),
     supabase.from("accounts").select("*").order("sort_order").order("name"),
     supabase.from("categories").select("*").eq("is_archived", false).order("sort_order").order("name"),
     supabase.from("payment_methods").select("*").order("sort_order").order("name"),
@@ -88,12 +93,12 @@ export async function isSetUp(): Promise<boolean> {
 
 export async function getPresets() {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("presets").select("key, name, description, data");
+  const { data, error } = await supabase.from("presets").select("key, name, description, data").order("name");
   if (error) fail("Presets", error);
   // Building blocks (without accounts) cannot be applied on their own.
   return (data ?? [])
     .filter((p) => p.data && typeof p.data === "object" && "accounts" in p.data)
-    .map((p) => ({ key: p.key as string, name: p.name as string, description: p.description as string | null }));
+    .map((p) => ({ key: p.key as string, name: p.name as string, description: p.description as string | null, data: p.data as SetupData }));
 }
 
 export async function getCurrentMonthKey(): Promise<number> {
@@ -242,6 +247,28 @@ export async function getGoalsOverview() {
   };
 }
 
+export async function getGoalPlanning() {
+  const supabase = await createClient();
+  const [plans, debts] = await Promise.all([supabase.rpc("goal_plans"), supabase.rpc("debt_summary")]);
+  if (plans.error) fail("Metas", plans.error);
+  if (debts.error) fail("Dívidas", debts.error);
+  return { plans: plans.data as GoalPlan[], debts: debts.data as DebtSummary[] };
+}
+
+export async function getNotifications(): Promise<Notification[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("notifications");
+  if (error) fail("Notificações", error);
+  return data as Notification[];
+}
+
+export async function getBudgetTrack(): Promise<BudgetTrack> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("budget_track");
+  if (error) fail("Meses dentro do orçamento", error);
+  return data as BudgetTrack;
+}
+
 export async function getInsights(monthKey: number, previousKey: number, categoryId: string | null) {
   const supabase = await createClient();
   const [current, previous, changes, allocation, history, habits] = await Promise.all([
@@ -323,4 +350,51 @@ export async function getHabits(): Promise<HabitOverview[]> {
   const { data, error } = await supabase.rpc("habits_overview");
   if (error) fail("Hábitos", error);
   return data as HabitOverview[];
+}
+
+export async function getEntityRows(table: string, orderBy: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from(table).select("*").order(orderBy).order("id");
+  if (error) fail(table, error);
+  return (data ?? []) as Record<string, unknown>[];
+}
+
+/** Options for reference fields in the Settings editors. */
+export async function getSettingsOptions() {
+  const supabase = await createClient();
+  const [accounts, categories, groups, methods, recurring, goals, rules] = await Promise.all([
+    supabase.from("accounts").select("id, name, type").order("sort_order"),
+    supabase.from("categories").select("id, name").order("sort_order"),
+    supabase.from("category_groups").select("id, name").order("sort_order"),
+    supabase.from("payment_methods").select("id, name").order("sort_order"),
+    supabase.from("recurring_payments").select("id, description").order("sort_order"),
+    supabase.from("goals").select("id, name").eq("is_archived", false).order("sort_order"),
+    supabase.from("allocation_rules").select("id, name").order("sort_order"),
+  ]);
+  for (const r of [accounts, categories, groups, methods, recurring, goals, rules]) if (r.error) fail("Opções", r.error);
+  const named = (rows: { id: string; name: string }[] | null) => (rows ?? []).map((r) => ({ value: r.id, label: r.name }));
+  return {
+    accounts: named(accounts.data),
+    creditAccounts: named((accounts.data ?? []).filter((a) => a.type === "credit")),
+    categories: named(categories.data),
+    groups: named(groups.data),
+    methods: named(methods.data),
+    recurring: (recurring.data ?? []).map((r) => ({ value: r.id as string, label: r.description as string })),
+    goals: named(goals.data),
+    rules: named(rules.data),
+  };
+}
+
+export async function getFullSettings() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("user_settings").select("*").maybeSingle();
+  if (error) fail("Definições", error);
+  return data as Record<string, unknown> | null;
+}
+
+export async function getDebtOverview(): Promise<DebtOverview> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("debt_overview");
+  if (error) fail("Compromissos", error);
+  return data as DebtOverview;
 }

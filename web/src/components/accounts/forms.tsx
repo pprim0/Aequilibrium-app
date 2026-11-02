@@ -102,15 +102,17 @@ export function confirmDelete(run: (fn: () => Promise<ActionResult>) => void, fn
 }
 
 // ---------------------------------------------------------------- account
-export function AccountForm({ account, today, onDone }: { account?: Account; today: string; onDone: () => void }) {
+export function AccountForm({ account, today, debt, card, onDone }: { account?: Account; today: string; debt?: boolean; card?: boolean; onDone: () => void }) {
   const [v, setV] = useState<AccountInput>({
     id: account?.id,
     name: account?.name ?? "",
-    type: account?.type ?? "checking",
+    type: account?.type ?? (debt ? "credit" : "checking"),
     amount: account ? amountToInput(Math.abs(Number(account.opening_balance))) : "",
     openingDate: account?.opening_date ?? today,
     debtStrategy: account?.debt_strategy ?? "plan",
     archived: account?.is_archived ?? false,
+    isCreditCard: card ?? false,
+    creditLimit: account?.credit_limit != null ? amountToInput(account.credit_limit) : "",
   });
   const { error, pending, run, fieldError } = useSubmit(onDone);
   const isCredit = v.type === "credit";
@@ -126,17 +128,19 @@ export function AccountForm({ account, today, onDone }: { account?: Account; tod
       <Field label={t.accounts.name} htmlFor="acc-name" error={fieldError("name")}>
         <Input id="acc-name" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} required />
       </Field>
+      {!debt && (
       <Field label={t.accounts.type} htmlFor="acc-type">
         <Select id="acc-type" value={v.type} onChange={(e) => setV({ ...v, type: e.target.value as AccountInput["type"] })}>
-          {ACCOUNT_TYPES.map((type) => (
+          {ACCOUNT_TYPES.filter((type) => type !== "credit").map((type) => (
             <option key={type} value={type}>
               {t.accountTypes[type]}
             </option>
           ))}
         </Select>
       </Field>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        <Field label={isCredit ? t.accounts.owedAmount : t.accounts.openingBalance} htmlFor="acc-amount" error={fieldError("amount")}>
+        <Field label={card ? t.debts.usedAmount : isCredit ? t.accounts.owedAmount : t.accounts.openingBalance} htmlFor="acc-amount" error={fieldError("amount")}>
           <Input id="acc-amount" inputMode="decimal" value={v.amount} onChange={(e) => setV({ ...v, amount: e.target.value })} placeholder="0,00" className="tabular" />
         </Field>
         <Field label={t.accounts.openingDate} htmlFor="acc-date" error={fieldError("openingDate")}>
@@ -144,7 +148,12 @@ export function AccountForm({ account, today, onDone }: { account?: Account; tod
         </Field>
       </div>
       <p className="-mt-2 text-xs text-text-3">{t.accounts.openingDateHint}</p>
-      {isCredit && (
+      {card && (
+        <Field label={t.debts.limit} htmlFor="acc-limit" error={fieldError("creditLimit")}>
+          <Input id="acc-limit" inputMode="decimal" value={v.creditLimit} onChange={(e) => setV({ ...v, creditLimit: e.target.value })} placeholder="0,00" className="tabular" />
+        </Field>
+      )}
+      {isCredit && !card && (
         <Field label={t.accounts.debtStrategy} htmlFor="acc-strategy">
           <Select id="acc-strategy" value={v.debtStrategy} onChange={(e) => setV({ ...v, debtStrategy: e.target.value as "plan" | "installments" })}>
             <option value="plan">{t.debtStrategies.plan}</option>
@@ -307,10 +316,12 @@ export function InstallmentForm({
 }
 
 // Client entry points for the (server-rendered) accounts page.
-export function AccountDialog({ account, today }: { account?: Account; today: string }) {
+export function AccountDialog({ account, today, debt, card }: { account?: Account; today: string; debt?: boolean; card?: boolean }) {
+  const newLabel = card ? t.debts.newCard : debt ? t.accounts.newDebt : t.accounts.newAccount;
+  const editTitle = card ? t.debts.editCard : debt ? t.accounts.editDebt : t.accounts.editAccount;
   return (
-    <EditDialog title={account ? t.accounts.editAccount : t.accounts.newAccount} label={account ? `${t.common.edit} ${account.name}` : t.accounts.newAccount} isNew={!account}>
-      {(close) => <AccountForm account={account} today={today} onDone={close} />}
+    <EditDialog title={account ? editTitle : newLabel} label={account ? `${t.common.edit} ${account.name}` : newLabel} isNew={!account}>
+      {(close) => <AccountForm account={account} today={today} debt={debt} card={card} onDone={close} />}
     </EditDialog>
   );
 }

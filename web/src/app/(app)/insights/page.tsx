@@ -26,7 +26,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         prevHref={`/insights?mes=${shiftMonthKey(monthKey, -1)}${keep}`}
         nextHref={`/insights?mes=${shiftMonthKey(monthKey, 1)}${keep}`}
       />
-      <InsightsView monthKey={monthKey} categories={lookups.categories} categoryId={categoryId} data={data} />
+      <InsightsView monthKey={monthKey} categories={lookups.categories} categoryId={categoryId} data={data} showHabits={lookups.settings?.show_habits ?? false} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { deleteTransaction, saveTransaction, type TxInput } from "@/app/actions/transactions";
 import { amountToInput, formatMoney, parseAmount } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { TX_TYPES, TYPES_WITH_DESTINATION, type Category, type Lookups, type Shortcut, type Transaction } from "@/lib/types";
+import { TX_TYPES, TYPES_WITH_DESTINATION, type Category, type Lookups, type Transaction } from "@/lib/types";
 import { t } from "@/i18n";
 
 type Line = { categoryId: string; amount: string };
@@ -46,21 +46,18 @@ export function TransactionForm({
   editing: Transaction | null;
   onDone: () => void;
 }) {
-  const { accounts, categories, paymentMethods, shortcuts, settings, today } = lookups;
+  const { accounts, categories, paymentMethods, settings, today } = lookups;
   const activeAccounts = accounts.filter((a) => !a.is_archived || a.id === editing?.account_id || a.id === editing?.to_account_id);
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const accountById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const methodById = useMemo(() => new Map(paymentMethods.map((m) => [m.id, m])), [paymentMethods]);
 
   const [date, setDate] = useState(editing?.date ?? today);
-  const [shortcutId, setShortcutId] = useState(editing?.shortcut_id ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [note, setNote] = useState(editing?.note ?? "");
   const [methodId, setMethodId] = useState(editing?.payment_method_id ?? "");
   const [accountId, setAccountId] = useState(editing?.account_id ?? settings?.default_account_id ?? "");
   const [toAccountId, setToAccountId] = useState(editing?.to_account_id ?? "");
-  const [recurringId, setRecurringId] = useState(editing?.recurring_id ?? "");
-  const [usualAmount, setUsualAmount] = useState<string | null>(null);
   const [split, setSplit] = useState(false);
   const [lines, setLines] = useState<Line[]>([
     { categoryId: editing?.category_id ?? "", amount: editing ? amountToInput(editing.amount) : "" },
@@ -85,17 +82,6 @@ export function TransactionForm({
     }
   }
 
-  function applyShortcut(sc: Shortcut) {
-    setShortcutId(sc.id);
-    setDescription(sc.description ?? sc.name);
-    setRecurringId(sc.recurring_id ?? "");
-    setUsualAmount(sc.usual_amount != null ? formatMoney(sc.usual_amount) : null);
-    if (sc.payment_method_id) setMethodId(sc.payment_method_id);
-    const method = sc.payment_method_id ? methodById.get(sc.payment_method_id) : undefined;
-    setAccountId(sc.account_id ?? method?.account_id ?? settings?.default_account_id ?? "");
-    if (sc.category_id) setLine(0, { categoryId: sc.category_id });
-  }
-
   function changeMethod(id: string) {
     setMethodId(id);
     const method = methodById.get(id);
@@ -113,8 +99,9 @@ export function TransactionForm({
       paymentMethodId: methodId,
       accountId,
       toAccountId: needsDestination ? toAccountId : "",
-      shortcutId,
-      recurringId,
+      // Links made earlier stay when a movement is edited.
+      shortcutId: editing?.shortcut_id ?? "",
+      recurringId: editing?.recurring_id ?? "",
       lines,
     };
     startTransition(async () => {
@@ -137,27 +124,17 @@ export function TransactionForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-      {!editing && shortcuts.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-semibold text-text-2">{t.tx.shortcuts}</p>
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-            {shortcuts.map((sc) => (
-              <button
-                key={sc.id}
-                type="button"
-                onClick={() => applyShortcut(sc)}
-                aria-pressed={shortcutId === sc.id}
-                className={cn(
-                  "min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold",
-                  shortcutId === sc.id ? "border-primary bg-primary-pale text-primary" : "border-border bg-card text-text-2",
-                )}
-              >
-                {sc.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <Field label={t.tx.description} htmlFor="description">
+        <Input
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          autoComplete="off"
+          placeholder={t.tx.descriptionPlaceholder}
+          className="font-semibold"
+          data-autofocus={editing ? undefined : true}
+        />
+      </Field>
 
       {lines.map((line, i) => (
         <div key={i} className={cn("grid gap-3", split && "rounded-[var(--radius-sm)] border border-border p-3")}>
@@ -165,7 +142,6 @@ export function TransactionForm({
             label={split ? `${t.tx.amount} ${i + 1}` : t.tx.amount}
             htmlFor={`amount-${i}`}
             error={fieldError(`amount-${i}`)}
-            hint={i === 0 && usualAmount ? t.tx.usualAmount(usualAmount) : undefined}
           >
             <Input
               id={`amount-${i}`}
@@ -176,7 +152,6 @@ export function TransactionForm({
               onChange={(e) => setLine(i, { amount: e.target.value })}
               aria-invalid={Boolean(fieldError(`amount-${i}`))}
               className="tabular text-2xl font-bold"
-              autoFocus={i === 0 && !editing}
             />
           </Field>
           <Field label={t.tx.category} htmlFor={`category-${i}`} error={fieldError(`category-${i}`)}>
@@ -264,9 +239,6 @@ export function TransactionForm({
       </div>
       {isCreditPurchase && <p className="rounded-[var(--radius-sm)] bg-info-pale px-3 py-2 text-xs text-info">{t.tx.creditHint}</p>}
 
-      <Field label={t.tx.description} htmlFor="description">
-        <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} autoComplete="off" />
-      </Field>
       <Field label={`${t.tx.note} (${t.common.optional})`} htmlFor="note">
         <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} autoComplete="off" />
       </Field>

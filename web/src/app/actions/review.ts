@@ -15,7 +15,7 @@ export type CheckinInput = {
   notes: string;
 };
 
-export type ReviewResult = { ok: true; xpChange: number; unlocked: string[] } | { ok: false; error: string };
+export type ReviewResult = { ok: true; unlocked: string[] } | { ok: false; error: string };
 
 export async function saveCheckin(input: CheckinInput): Promise<ReviewResult> {
   const supabase = await createClient();
@@ -42,5 +42,5 @@ export async function saveCheckin(input: CheckinInput): Promise<ReviewResult> {
 
   const { data } = await supabase.rpc("evaluate_gamification");
   revalidatePath("/", "layout");
-  return { ok: true, xpChange: data?.xp_change ?? 0, unlocked: data?.unlocked ?? [] };
+  return { ok: true, unlocked: data?.unlocked ?? [] };
 }
