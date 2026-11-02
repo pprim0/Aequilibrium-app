@@ -60,7 +60,7 @@ export function EditDialog({
   );
 }
 
-function useSubmit(onDone: () => void) {
+export function useSubmit(onDone: () => void) {
   const [error, setError] = useState<FormError>(null);
   const [pending, startTransition] = useTransition();
   const run = (fn: () => Promise<ActionResult>) => {
@@ -75,7 +75,7 @@ function useSubmit(onDone: () => void) {
   return { error, pending, run, fieldError };
 }
 
-function Footer({ pending, onDelete, error }: { pending: boolean; onDelete?: () => void; error: FormError }) {
+export function Footer({ pending, onDelete, error }: { pending: boolean; onDelete?: () => void; error: FormError }) {
   return (
     <>
       {error && !error.field && (
@@ -97,7 +97,7 @@ function Footer({ pending, onDelete, error }: { pending: boolean; onDelete?: () 
   );
 }
 
-function confirmDelete(run: (fn: () => Promise<ActionResult>) => void, fn: () => Promise<ActionResult>) {
+export function confirmDelete(run: (fn: () => Promise<ActionResult>) => void, fn: () => Promise<ActionResult>) {
   if (window.confirm(t.common.confirmDelete)) run(fn);
 }
 

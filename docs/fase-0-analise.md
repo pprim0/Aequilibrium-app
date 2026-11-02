@@ -184,3 +184,29 @@ O Excel atualizado passou a ser a referência e substitui a regra original do en
 - **Migração:** `supabase/migrations/20261102120000_momentum_meal_card.sql`, que pode correr mais do que uma vez.
 
 **Limitação:** no modo `projected`, um ordenado recebido abaixo do valor esperado conta a diferença como rendimento ainda em falta. Por isso esse modo não é o padrão.
+
+## 10. Fase 4 — plano (Início, Orçamento, Objetivos & Investimentos, Insights)
+
+1. **SQL (migração nova, só leitura):** histórico mensal, variações por categoria e relação hábitos × gastos. Fica na mesma fonte única de números.
+2. **Navegação:** novas entradas no menu; no telemóvel, um botão "Mais" com Contas, Objetivos, Insights e Sair.
+3. **Início:** livre para gastar, gasto hoje, rendimentos e despesas do mês, saldos, próxima prestação, progresso do mês, alertas de orçamento e atividade recente. Nível, XP, streak, missões e conquistas ficam para a Fase 5.
+4. **Orçamento:** envelopes e categorias por mês, com barras e cores de alerta, e edição dos valores.
+5. **Objetivos & Investimentos:** progresso e marcos, histórico mensal, criar e editar objetivos; investimentos com valor atual e ganho, e registo do valor de mercado.
+6. **Insights:** mês vs anterior, maiores variações, fixas vs variáveis, regra 50/20/20/10, gráficos e hábitos × gastos.
+
+**Verificação:** testes SQL com o cenário de referência e com os dados reais (privados); build e lint; ecrãs a 375 px e 1440 px com dados de exemplo.
+
+## 11. Fase 4 — resumo
+
+**O que foi feito**
+
+- **SQL:** `20261102130000_momentum_insights.sql`, só com funções de leitura: `monthly_history`, `goal_history`, `category_changes` e `habit_spending`.
+- **Navegação:** Orçamento, Objetivos e Insights no menu. No telemóvel, o botão "Mais" dá acesso a Contas, Objetivos, Insights e Sair (antes não havia como sair no telemóvel).
+- **Início:** livre para gastar, gasto hoje, rendimentos e despesas, como é calculado, chega para o resto do mês, progresso, alertas, próxima prestação, saldos e atividade recente.
+- **Orçamento:** envelopes e categorias por mês, com barras, estado em texto e edição dos valores.
+- **Objetivos & Investimentos:** progresso, marcos com data, histórico mensal, criar, editar e arquivar objetivos; valor de mercado e ganho dos investimentos, e novos ativos.
+- **Insights:** mês vs anterior, maiores variações, fixas vs variáveis, despesas por mês (Recharts, com tabela alternativa) e por categoria, regra de distribuição e hábitos × gastos.
+
+**Testes:** 41 testes SQL (incluindo os privados com dados reais), 19 da app, lint e build sem erros. Vistos no browser a 375 px e 1440 px com dados de exemplo.
+
+**Limitações:** nível, XP, streak e missões no Início são a Fase 5. O plano mensal ainda não tem editor (Definições). Os ecrãs novos não foram testados com sessão iniciada nem as gravações (orçamento, objetivos, valor de investimentos) contra o Supabase real.

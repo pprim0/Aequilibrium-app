@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Search } from "lucide-react";
+import { MonthNav } from "@/components/ui/month-nav";
 import { Card, EmptyState } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { TransactionList } from "@/components/transactions/transaction-list";
 import { SetupMissing } from "@/components/setup/require-setup";
 import { getCurrentMonthKey, getLookups, getMonthTotals, getTransactions, isSetUp } from "@/lib/data";
-import { formatDate, formatMoney, monthLongLabel, shiftMonthKey } from "@/lib/format";
+import { formatMoney, shiftMonthKey } from "@/lib/format";
 import { TX_TYPES, type TxType } from "@/lib/types";
 import { t } from "@/i18n";
 
@@ -44,26 +45,13 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     <div className="flex flex-col gap-5">
       <h1 className="text-2xl font-extrabold">{t.tx.title}</h1>
 
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          href={href({ ...keep, mes: String(shiftMonthKey(monthKey, -1)) })}
-          aria-label={t.tx.previousMonth}
-          className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card hover:bg-muted"
-        >
-          <ChevronLeft className="size-5" aria-hidden />
-        </Link>
-        <div className="text-center">
-          <p className="font-bold first-letter:uppercase">{monthLongLabel(monthKey)}</p>
-          <p className="text-xs text-text-3">{t.tx.monthRange(formatDate(totals.start_date), formatDate(totals.end_date))}</p>
-        </div>
-        <Link
-          href={href({ ...keep, mes: String(shiftMonthKey(monthKey, 1)) })}
-          aria-label={t.tx.nextMonth}
-          className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card hover:bg-muted"
-        >
-          <ChevronRight className="size-5" aria-hidden />
-        </Link>
-      </div>
+      <MonthNav
+        monthKey={monthKey}
+        start={totals.start_date}
+        end={totals.end_date}
+        prevHref={href({ ...keep, mes: String(shiftMonthKey(monthKey, -1)) })}
+        nextHref={href({ ...keep, mes: String(shiftMonthKey(monthKey, 1)) })}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-3">

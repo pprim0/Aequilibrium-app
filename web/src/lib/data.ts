@@ -6,6 +6,16 @@ import { todayISO } from "@/lib/format";
 import type {
   Account,
   AccountBalance,
+  AllocationRow,
+  BudgetUsage,
+  CategoryChange,
+  CategoryGroup,
+  GoalHistory,
+  GoalProgress,
+  GoalRow,
+  HabitSpending,
+  InvestmentSummary,
+  MonthHistory,
   Category,
   DebtSummary,
   FreeToSpend,
@@ -187,4 +197,77 @@ export async function getAccountsOverview(monthKey: number) {
     recurring: recurring.data as RecurringPayment[],
     installmentRows: installmentRows.data as Installment[],
   };
+}
+
+export async function getBudget(monthKey: number) {
+  const supabase = await createClient();
+  const [usage, groups] = await Promise.all([
+    supabase.rpc("budget_usage", { p_month_key: monthKey }),
+    supabase.from("category_groups").select("id, name, monthly_budget, sort_order").order("sort_order"),
+  ]);
+  if (usage.error) fail("Orçamento", usage.error);
+  if (groups.error) fail("Grupos", groups.error);
+  return { usage: usage.data as BudgetUsage[], groups: groups.data as CategoryGroup[] };
+}
+
+export async function getGoalsOverview() {
+  const supabase = await createClient();
+  const [progress, rows, investments] = await Promise.all([
+    supabase.rpc("goal_progress"),
+    supabase.from("goals").select("id, name, target_type, target_amount, target_formula, target_date, priority").eq("is_archived", false),
+    supabase.rpc("investment_summary"),
+  ]);
+  if (progress.error) fail("Objetivos", progress.error);
+  if (rows.error) fail("Objetivos", rows.error);
+  if (investments.error) fail("Investimentos", investments.error);
+  const goals = progress.data as GoalProgress[];
+  const history = await Promise.all(
+    goals.map(async (g) => {
+      const { data, error } = await supabase.rpc("goal_history", { p_goal_id: g.goal_id });
+      if (error) fail("Histórico do objetivo", error);
+      return [g.goal_id, data as GoalHistory[]] as const;
+    }),
+  );
+  return {
+    goals,
+    rows: rows.data as GoalRow[],
+    history: Object.fromEntries(history),
+    investments: investments.data as InvestmentSummary[],
+  };
+}
+
+export async function getInsights(monthKey: number, previousKey: number, categoryId: string | null) {
+  const supabase = await createClient();
+  const [current, previous, changes, allocation, history, habits] = await Promise.all([
+    getMonthTotals(monthKey),
+    getMonthTotals(previousKey),
+    supabase.rpc("category_changes", { p_month_key: monthKey }),
+    supabase.rpc("allocation_comparison", { p_month_key: monthKey }),
+    supabase.rpc("monthly_history"),
+    supabase.rpc("habit_spending", { p_category_id: categoryId }),
+  ]);
+  if (changes.error) fail("Variações", changes.error);
+  if (allocation.error) fail("Regra de distribuição", allocation.error);
+  if (history.error) fail("Histórico", history.error);
+  if (habits.error) fail("Hábitos e gastos", habits.error);
+  return {
+    current,
+    previous,
+    changes: changes.data as CategoryChange[],
+    allocation: allocation.data as AllocationRow[],
+    history: history.data as MonthHistory[],
+    habits: habits.data as HabitSpending[],
+  };
+}
+
+export async function getRecentTransactions(limit: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) fail("Atividade recente", error);
+  return data as Transaction[];
 }

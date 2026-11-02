@@ -23,6 +23,8 @@
   --info-pale: #e8f1fb;
   --muted: #f0efea;
   --on-primary: #ffffff;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
   color-scheme: light;
 }
 
@@ -49,6 +51,8 @@
     --info-pale: #172a3d;
     --muted: #222825;
     --on-primary: #0d1f17;
+    --series-1: #3987e5;
+    --series-2: #d95926;
     color-scheme: dark;
   }
 }
@@ -75,6 +79,8 @@
   --color-info-pale: var(--info-pale);
   --color-muted: var(--muted);
   --color-on-primary: var(--on-primary);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --radius-sm: 10px;
   --radius-md: 16px;

@@ -153,6 +153,8 @@ export type MonthTotals = {
   income: Numeric;
   expenses: Numeric;
   credit_expenses: Numeric;
+  fixed_expenses: Numeric;
+  variable_expenses: Numeric;
   debt_payments: Numeric;
   savings: Numeric;
   investments: Numeric;
@@ -194,3 +196,99 @@ export type Lookups = {
 };
 
 export type ActionResult = { ok: true } | { ok: false; error: string; field?: string };
+
+export type BudgetUsage = {
+  scope: "group" | "category";
+  id: string;
+  name: string;
+  group_id: string | null;
+  budget: Numeric | null;
+  spent: Numeric;
+  pct: Numeric | null;
+  level: "none" | "ok" | "yellow" | "orange" | "red";
+};
+
+export type Milestone = { pct: number; amount: number; reached_on: string | null };
+
+export type GoalProgress = {
+  goal_id: string;
+  name: string;
+  target: Numeric | null;
+  saved: Numeric;
+  remaining: Numeric | null;
+  progress: Numeric | null;
+  target_date: string | null;
+  status: "no_category" | "no_target" | "reached" | "overdue" | "in_progress";
+  milestones: Milestone[];
+};
+
+export type GoalRow = {
+  id: string;
+  name: string;
+  target_type: "fixed" | "formula";
+  target_amount: Numeric | null;
+  target_formula: { factor?: number; includes?: string[]; round_up?: number; at?: string } | null;
+  target_date: string | null;
+  priority: number;
+};
+
+export type GoalHistory = { month_key: number; deposited: Numeric; accumulated: Numeric; target: Numeric | null; progress: Numeric | null };
+
+export type InvestmentSummary = {
+  category_id: string;
+  name: string;
+  deposited: Numeric;
+  sold: Numeric;
+  invested: Numeric;
+  current_value: Numeric | null;
+  valued_on: string | null;
+  gain: Numeric | null;
+  gain_pct: Numeric | null;
+};
+
+export type MonthHistory = {
+  month_key: number;
+  is_current: boolean;
+  income: Numeric;
+  expenses: Numeric;
+  fixed_expenses: Numeric;
+  variable_expenses: Numeric;
+  debt_payments: Numeric;
+  savings: Numeric;
+  investments: Numeric;
+  debt_outstanding: Numeric;
+};
+
+export type CategoryChange = {
+  category_id: string;
+  name: string;
+  emoji: string | null;
+  nature: "fixed" | "variable";
+  current_amount: Numeric;
+  previous_amount: Numeric;
+  change: Numeric;
+};
+
+export type HabitSpending = {
+  habit_id: string;
+  name: string;
+  emoji: string | null;
+  days_done: number;
+  days_not_done: number;
+  avg_done: Numeric | null;
+  avg_not_done: Numeric | null;
+  difference: Numeric | null;
+  enough_data: boolean;
+};
+
+export type AllocationRow = {
+  rule_id: string;
+  name: string;
+  pct: Numeric;
+  recommended: Numeric;
+  actual: Numeric;
+  difference: Numeric;
+  debt_phase: boolean;
+};
+
+export type CategoryGroup = { id: string; name: string; monthly_budget: Numeric | null; sort_order: number };
