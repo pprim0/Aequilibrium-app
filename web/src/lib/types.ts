@@ -292,3 +292,68 @@ export type AllocationRow = {
 };
 
 export type CategoryGroup = { id: string; name: string; monthly_budget: Numeric | null; sort_order: number };
+
+export type Gamification = {
+  xp_total: number;
+  level: number | null;
+  level_name: string | null;
+  next_level_name: string | null;
+  xp_to_next: number | null;
+  level_progress: Numeric;
+  xp_by_source: { source: string | null; xp: number }[];
+  streak: number;
+  best_streak: number;
+  reviewed_today: boolean;
+  days_reviewed_month: number;
+  days_elapsed_month: number;
+};
+
+export type MissionStatus = {
+  mission_id: string;
+  name: string;
+  period: "day" | "week";
+  xp: number;
+  done: boolean;
+  kind: string | null;
+  current_value: Numeric | null;
+  target_value: Numeric | null;
+};
+
+export type AchievementStatus = {
+  achievement_id: string;
+  name: string;
+  description: string | null;
+  xp: number;
+  unlocked_on: string | null;
+};
+
+export type CalendarDay = { day: string; reviewed: boolean; is_rest: boolean; is_today: boolean; streak: number };
+
+export type Checkin = {
+  day: string;
+  reviewed: boolean;
+  no_expenses: boolean;
+  payments_confirmed: boolean;
+  budget_checked: boolean;
+  weekly_review: boolean;
+  debts_goals_reviewed: boolean;
+  notes: string | null;
+};
+
+export type HabitOverview = {
+  habit_id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  frequency_type: "daily" | "weekly" | "specific_days";
+  target_per_period: number;
+  time_of_day: string | null;
+  system_key: string | null;
+  weekdays: number[];
+  scheduled_today: boolean;
+  done_today: boolean;
+  done_this_week: number;
+  current_streak: number;
+  best_streak: number;
+  streak_unit: "days" | "weeks";
+};

@@ -3,13 +3,18 @@ import { Card, EmptyState, SectionTitle } from "@/components/ui/card";
 import { Meter, type MeterLevel } from "@/components/ui/meter";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { TransactionList } from "@/components/transactions/transaction-list";
+import { ReviewDialog } from "@/components/review/review-dialog";
 import { formatDate, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type {
   AccountBalance,
   BudgetUsage,
   DebtSummary,
+  AchievementStatus,
+  Checkin,
   FreeToSpend,
+  Gamification,
+  MissionStatus,
   GoalProgress,
   InstallmentStatus,
   Lookups,
@@ -30,6 +35,10 @@ export type HomeData = {
   debts: DebtSummary[];
   goals: GoalProgress[];
   recent: Transaction[];
+  gamification: Gamification;
+  missions: MissionStatus[];
+  achievements: AchievementStatus[];
+  checkins: Checkin[];
 };
 
 const alertTone: Record<string, Tone> = { yellow: "warning", orange: "orange", red: "error" };
@@ -66,7 +75,7 @@ function ProgressRow({ label, value, level, detail }: { label: string; value: nu
 }
 
 export function HomeView({ data, lookups }: { data: HomeData; lookups: Lookups }) {
-  const { free, coverage, spentToday, totals, balances, installments, usage, debts, goals, recent } = data;
+  const { free, coverage, spentToday, totals, balances, installments, usage, debts, goals, recent, gamification, missions, achievements, checkins } = data;
   const projected = free.state === "projected";
   const shownFree = Number(projected ? free.free_projected : free.free);
   const benefit = Number(free.benefit_balance);
@@ -88,6 +97,11 @@ export function HomeView({ data, lookups }: { data: HomeData; lookups: Lookups }
   const borrowed = debts.reduce((sum, d) => sum + Number(d.total_borrowed), 0);
   const paid = debts.reduce((sum, d) => sum + Number(d.paid), 0);
   const mainGoal = goals[0];
+  const dayMissions = missions.filter((m) => m.period === "day");
+  const latest = achievements
+    .filter((a) => a.unlocked_on)
+    .sort((a, b) => (b.unlocked_on ?? "").localeCompare(a.unlocked_on ?? ""))
+    .slice(0, 3);
 
   return (
     <div className="flex flex-col gap-6">
@@ -110,6 +124,49 @@ export function HomeView({ data, lookups }: { data: HomeData; lookups: Lookups }
         <Stat label={t.home.spentToday} value={formatMoney(spentToday)} className="col-span-2 lg:col-span-1" />
         <Stat label={t.home.monthIncome} value={formatMoney(totals.income)} tone="text-success" />
         <Stat label={t.home.monthExpenses} value={formatMoney(totals.expenses)} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="font-bold">{gamification.level !== null && t.progress.levelName(gamification.level, gamification.level_name ?? "")}</h2>
+              <p className="text-sm text-text-2">
+                {t.progress.xpTotal(gamification.xp_total)}
+                {gamification.xp_to_next !== null && ` · ${t.progress.xpToNext(gamification.xp_to_next, gamification.next_level_name ?? "")}`}
+              </p>
+            </div>
+            <p className="shrink-0 text-right text-sm font-bold">🔥 {t.progress.days(gamification.streak)}</p>
+          </div>
+          <Meter value={Number(gamification.level_progress)} label={t.progress.title} />
+          <ul className="flex flex-col gap-1 text-sm">
+            {dayMissions.map((m) => (
+              <li key={m.mission_id} className="flex items-center justify-between gap-2">
+                <span className={cn("min-w-0", m.done && "text-text-3")}>{m.done ? "✓" : "○"} {m.name}</span>
+                <span className="tabular shrink-0 text-xs text-text-3">+{m.xp} XP</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ReviewDialog checkins={checkins} today={lookups.today} />
+            <Link href="/progresso" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary">{t.progress.seeAll}</Link>
+          </div>
+        </Card>
+        <Card>
+          <h2 className="mb-2 font-bold">{t.progress.latest}</h2>
+          {latest.length === 0 ? (
+            <p className="text-sm text-text-2">{t.progress.noneYet}</p>
+          ) : (
+            <ul className="flex flex-col gap-2 text-sm">
+              {latest.map((a) => (
+                <li key={a.achievement_id} className="flex justify-between gap-3">
+                  <span>🏅 {a.name}</span>
+                  <span className="tabular shrink-0 text-xs text-text-3">{formatDate(a.unlocked_on)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

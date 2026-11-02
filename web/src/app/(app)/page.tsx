@@ -5,6 +5,8 @@ import {
   getBudget,
   getCurrentMonthKey,
   getFreeToSpend,
+  getGamification,
+  getRecentCheckins,
   getGoalsOverview,
   getLookups,
   getMonthCoverage,
@@ -17,7 +19,7 @@ import {
 export default async function HomePage() {
   if (!(await isSetUp())) return <SetupMissing />;
   const [lookups, monthKey] = await Promise.all([getLookups(), getCurrentMonthKey()]);
-  const [free, coverage, spentToday, totals, overview, budget, goals, recent] = await Promise.all([
+  const [free, coverage, spentToday, totals, overview, budget, goals, recent, gamification, checkins] = await Promise.all([
     getFreeToSpend(),
     getMonthCoverage(),
     getSpentToday(),
@@ -26,6 +28,8 @@ export default async function HomePage() {
     getBudget(monthKey),
     getGoalsOverview(),
     getRecentTransactions(6),
+    getGamification(),
+    getRecentCheckins(lookups.today),
   ]);
   return (
     <HomeView
@@ -41,6 +45,10 @@ export default async function HomePage() {
         debts: overview.debts,
         goals: goals.goals,
         recent,
+        gamification: gamification.overview,
+        missions: gamification.missions,
+        achievements: gamification.achievements,
+        checkins,
       }}
     />
   );

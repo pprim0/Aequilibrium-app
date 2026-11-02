@@ -9,7 +9,13 @@ import type {
   AllocationRow,
   BudgetUsage,
   CategoryChange,
+  AchievementStatus,
+  CalendarDay,
   CategoryGroup,
+  Checkin,
+  Gamification,
+  HabitOverview,
+  MissionStatus,
   GoalHistory,
   GoalProgress,
   GoalRow,
@@ -270,4 +276,51 @@ export async function getRecentTransactions(limit: number) {
     .limit(limit);
   if (error) fail("Atividade recente", error);
   return data as Transaction[];
+}
+
+// Evaluating first keeps finished weeks and months up to date even if the nightly job is not enabled.
+export async function getGamification() {
+  const supabase = await createClient();
+  const evaluated = await supabase.rpc("evaluate_gamification");
+  if (evaluated.error) fail("Gamificação", evaluated.error);
+  const [overview, missions, achievements] = await Promise.all([
+    supabase.rpc("gamification_overview"),
+    supabase.rpc("missions_status"),
+    supabase.rpc("achievements_status"),
+  ]);
+  if (overview.error) fail("Progresso", overview.error);
+  if (missions.error) fail("Missões", missions.error);
+  if (achievements.error) fail("Conquistas", achievements.error);
+  return {
+    overview: overview.data as Gamification,
+    missions: missions.data as MissionStatus[],
+    achievements: achievements.data as AchievementStatus[],
+  };
+}
+
+export async function getRecentCheckins(today: string): Promise<Checkin[]> {
+  const supabase = await createClient();
+  const yesterday = new Date(`${today}T12:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const { data, error } = await supabase
+    .from("daily_checkins")
+    .select("day, reviewed, no_expenses, payments_confirmed, budget_checked, weekly_review, debts_goals_reviewed, notes")
+    .gte("day", yesterday.toISOString().slice(0, 10))
+    .lte("day", today);
+  if (error) fail("Revisão", error);
+  return data as Checkin[];
+}
+
+export async function getReviewCalendar(): Promise<CalendarDay[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("review_calendar");
+  if (error) fail("Calendário", error);
+  return data as CalendarDay[];
+}
+
+export async function getHabits(): Promise<HabitOverview[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("habits_overview");
+  if (error) fail("Hábitos", error);
+  return data as HabitOverview[];
 }

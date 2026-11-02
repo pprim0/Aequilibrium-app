@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Ellipsis, Home, Lightbulb, ListOrdered, LogOut, PieChart, Plus, Target, Wallet, type LucideIcon } from "lucide-react";
+import { Ellipsis, Home, Lightbulb, Repeat, Trophy, ListOrdered, LogOut, PieChart, Plus, Target, Wallet, type LucideIcon } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { useTxForm } from "@/components/transactions/tx-form-provider";
 import { signOut } from "@/app/actions/auth";
@@ -15,10 +15,12 @@ type Item = { href: string; label: string; icon: LucideIcon };
 const items: Item[] = [
   { href: "/", label: t.nav.home, icon: Home },
   { href: "/movimentos", label: t.nav.transactions, icon: ListOrdered },
+  { href: "/habitos", label: t.nav.habits, icon: Repeat },
   { href: "/orcamento", label: t.nav.budget, icon: PieChart },
   { href: "/contas", label: t.nav.accounts, icon: Wallet },
   { href: "/objetivos", label: t.nav.goals, icon: Target },
   { href: "/insights", label: t.nav.insights, icon: Lightbulb },
+  { href: "/progresso", label: t.nav.progress, icon: Trophy },
 ];
 
 // On phones only these stay in the bar; the others live under "Mais".

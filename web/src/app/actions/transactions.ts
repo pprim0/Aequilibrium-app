@@ -86,6 +86,8 @@ export async function saveTransaction(input: TxInput): Promise<ActionResult> {
     if (error) return { ok: false, error: error.message };
   }
 
+  // A failed evaluation must not fail the save: the next screen load evaluates again.
+  await supabase.rpc("evaluate_gamification");
   revalidatePath("/", "layout");
   return { ok: true };
 }

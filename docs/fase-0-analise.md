@@ -210,3 +210,15 @@ O Excel atualizado passou a ser a referência e substitui a regra original do en
 **Testes:** 41 testes SQL (incluindo os privados com dados reais), 19 da app, lint e build sem erros. Vistos no browser a 375 px e 1440 px com dados de exemplo.
 
 **Limitações:** nível, XP, streak e missões no Início são a Fase 5. O plano mensal ainda não tem editor (Definições). Os ecrãs novos não foram testados com sessão iniciada nem as gravações (orçamento, objetivos, valor de investimentos) contra o Supabase real.
+
+## 12. Fase 5 — resumo
+
+**O que foi feito**
+
+- **Motor (`20261103120000_momentum_gamification.sql`):** `evaluate_gamification()` é a única forma de atribuir XP; o cliente não escreve em `xp_ledger`. Avalia regras (`checkin`, `checkin_week`, `days_reviewed_week`, `group_weekly_pace`) e conquistas definidas por dados. Desmarcar hoje ou ontem retira o XP desse dia. Corre depois de cada escrita relevante e ao abrir o Início e o Progresso. O job noturno só fica agendado se `pg_cron` estiver ativo.
+- **Streak:** `review_calendar`, com dias de descanso configuráveis numa janela de 7 dias, como no Excel. O hábito de sistema "Revisão financeira do dia" acompanha a revisão nos dois sentidos.
+- **Ecrãs:** revisão diária (hoje ou ontem), Hábitos (tocar para marcar, deslizar para apagar, frequências diária, em dias específicos e N por semana), Progresso (nível, XP por origem, missões, calendário, conquistas) e o bloco de nível, streak e missões no Início.
+
+**Testes:** 62 testes SQL, incluindo descanso e quebra da streak, XP sem duplicados, missões, conquistas com a data real e RLS. Com os dados reais: 110 XP, nível 2 e 3 conquistas, iguais ao Excel. 19 testes da app, lint e build sem erros.
+
+**Limitações:** as definições de XP, níveis, missões e conquistas são dados, mas ainda não têm editor na app (Definições). Sem `pg_cron`, semanas terminadas só são avaliadas ao abrir a app. Lembretes de hábitos ficam para o Web Push (Fase 6).

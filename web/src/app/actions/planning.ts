@@ -9,6 +9,7 @@ import { t } from "@/i18n";
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function done(): ActionResult {
+  // Goals and debts feed achievements, which the next screen load evaluates.
   revalidatePath("/", "layout");
   return { ok: true };
 }
