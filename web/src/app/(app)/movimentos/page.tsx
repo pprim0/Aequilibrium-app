@@ -53,7 +53,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           <ChevronLeft className="size-5" aria-hidden />
         </Link>
         <div className="text-center">
-          <p className="font-bold capitalize">{monthLongLabel(monthKey)}</p>
+          <p className="font-bold first-letter:uppercase">{monthLongLabel(monthKey)}</p>
           <p className="text-xs text-text-3">{t.tx.monthRange(formatDate(totals.start_date), formatDate(totals.end_date))}</p>
         </div>
         <Link

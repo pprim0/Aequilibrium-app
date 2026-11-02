@@ -2,11 +2,11 @@
 
 export type Numeric = number | string;
 
-export type AccountType = "checking" | "cash" | "savings" | "investment" | "credit";
+export type AccountType = "checking" | "cash" | "savings" | "investment" | "credit" | "benefit";
 export type TxType = "income" | "expense" | "transfer" | "saving" | "debt_payment" | "investment";
 
 export const TX_TYPES: TxType[] = ["income", "expense", "transfer", "saving", "debt_payment", "investment"];
-export const ACCOUNT_TYPES: AccountType[] = ["checking", "cash", "savings", "investment", "credit"];
+export const ACCOUNT_TYPES: AccountType[] = ["checking", "cash", "savings", "investment", "credit", "benefit"];
 
 /** Movement types that move money into another account. */
 export const TYPES_WITH_DESTINATION: TxType[] = ["transfer", "saving", "debt_payment", "investment"];
@@ -30,6 +30,8 @@ export type Category = {
   nature: "fixed" | "variable";
   own_limit: Numeric | null;
   default_to_account_id: string | null;
+  default_account_id: string | null;
+  benefit_eligible: boolean;
   emoji: string | null;
   sort_order: number;
   is_archived: boolean;
@@ -160,9 +162,25 @@ export type MonthTotals = {
 export type FreeToSpend = {
   month_key: number;
   state: "ok" | "no_income" | "projected";
+  available: Numeric;
+  benefit_balance: Numeric;
+  pending_recurring: Numeric;
+  pending_installments: Numeric;
+  reserved_debts: Numeric;
+  reserved_goals: Numeric;
+  has_plan: boolean;
   free: Numeric;
   free_projected: Numeric;
   missing_expected_income: Numeric;
+};
+
+export type MonthCoverage = {
+  budget_remaining: Numeric;
+  eligible_remaining: Numeric;
+  benefit_covered: Numeric;
+  needed_from_accounts: Numeric;
+  free: Numeric;
+  difference: Numeric;
 };
 
 /** Lookups the registration form needs (all small per-user lists). */

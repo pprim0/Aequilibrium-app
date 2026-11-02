@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,5 +9,7 @@ export async function applyPreset(_prev: string | null, formData: FormData): Pro
   const supabase = await createClient();
   const { error } = await supabase.rpc("apply_preset", { p_key: key });
   if (error) return error.message;
+  // The shared layout holds the registration form's lookups, which were empty until now.
+  revalidatePath("/", "layout");
   redirect("/");
 }

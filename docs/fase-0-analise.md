@@ -67,7 +67,7 @@ Regras confirmadas nas fórmulas e que vão ser reproduzidas tal como estão:
 
 - **Mês financeiro**: um dia ≥ 25 pertence ao mês seguinte; as semanas começam à segunda-feira.
 - **Saldo de conta**: saldo inicial + movimentos com data ≥ data do saldo inicial (inclui os desse dia).
-- **Livre para gastar**: rendimentos − (despesas − despesas a crédito) − dívidas − poupança − investimento − fixos e prestações por pagar − reservado. **Reservado** = máx(0, plano de dívidas − pago em dívidas com estratégia `plan`) + máx(0, plano do fundo − poupança). Verifiquei o cenário de teste do enunciado à mão e dá **205,60 €**, desde que o Cartão também esteja como `plan`, tal como no Excel.
+- **Livre para gastar** (regra atualizada em 02/11/2026, ver §9): conta à ordem + dinheiro − fixos e prestações por pagar − reservado. **Reservado** = máx(0, plano de dívidas − pago em dívidas com estratégia `plan`) + máx(0, plano do fundo − poupança). No cenário de referência dá **725,60 €**.
 - **Prestação paga**: total pago à dívida ≥ soma das prestações até essa data. "Por pagar este mês" só se a data for ≤ ao fim do mês financeiro.
 - **Fixos de N em N meses**: (meses desde `anchor_month`) mod N ≠ 0 → "Não é este mês".
 - **Streak**: um dia sem revisão não quebra a streak se houver no máximo 1 dia de descanso numa janela de 7 dias. O descanso mantém a contagem mas não a aumenta. O dia de hoje ainda não conta como falha.
@@ -84,7 +84,7 @@ Regras confirmadas nas fórmulas e que vão ser reproduzidas tal como estão:
 
 ## 5. Decisões
 
-- **D1 — "Livre para gastar" com rendimento parcial (configurável).** Com os dados reais de hoje, a regra do Excel dá **−730,23 €**: o extra de 300 € já está registado, o que desativa o aviso "Regista o rendimento", mas o ordenado de novembro ainda não entrou. A base de dados devolve sempre os dois valores: `free` (regra do Excel) e `free_projected` (soma o rendimento esperado que ainda falta, aqui 1238 € → **507,77 €**). O que a app mostra depende de `user_settings.free_to_spend_mode`: `projected` (por defeito) ou `actual`.
+- **D1 — "Livre para gastar" (substituída em 02/11/2026).** Com a nova regra do Excel, o valor parte do dinheiro que existe hoje, por isso deixa de depender de o rendimento já ter entrado. Por defeito, a app mostra esse valor real (`free_to_spend_mode = actual`). O modo `projected`, que soma o rendimento esperado em falta, continua disponível como opção.
 - **D2 — Ordenado (decidido).** Os rendimentos esperados são dados do utilizador, editáveis em Definições. Ficam numa tabela `income_sources` (nome, categoria, valor, dia previsto, válido de / até), com tantos valores e períodos quantos quiseres, e nada fica fixo no código. O preset "Primo" só sugere os valores iniciais: 1038 € até 24/12/2026, 1088 € a partir de 25/12/2026 (início do mês financeiro de jan 2027) e subsídio de 200 €. A meta do fundo lê estes valores através da `target_formula` (`"at": "latest"` ou `"current"`).
 - **D3 — Dia de pagamento do Spotify e da Netflix (em aberto).** Ficaram sem dia, como no Excel. Sem dia, o Spotify conta como "por pagar" e nunca como "em atraso". Basta definir o dia mais tarde, nas Definições.
 - **D4 — Pastas.** `web/` ao lado da app Expo; a app Expo é arquivada na fase 6.
@@ -172,3 +172,15 @@ npm run dev
 - **Ainda não foi testado contra um Supabase real.** Faltam o URL e a anon key em `web/.env.local`, e as migrações aplicadas num projeto. Sem isso, entrar, guardar movimentos e os números reais não estão verificados de ponta a ponta.
 - Editar um movimento dividido edita só essa parte.
 - Os testes e2e automáticos (Playwright) ficam para quando houver um projeto Supabase de desenvolvimento.
+
+## 9. Regras novas do Excel (02/11/2026)
+
+O Excel atualizado passou a ser a referência e substitui a regra original do enunciado.
+
+- **Livre para gastar:** conta à ordem + dinheiro − fixos e prestações por pagar − plano ainda em falta. O cenário de referência passa de 205,60 € para **725,60 €** (1125,60 − 300 − 100), porque o saldo inicial agora conta.
+- **Cartão refeição:** novo tipo de conta `benefit`. Fica fora do livre para gastar e do dinheiro nas contas, e aparece à parte. O subsídio entra lá sozinho (`categories.default_account_id`), e as categorias de comida têm `benefit_eligible`. Tudo por utilizador, sem nomes no código.
+- **Chega para o resto do mês?:** `month_coverage()` compara o orçamento em falta, menos o que o cartão pode cobrir, com o livre para gastar.
+- **"Regista o rendimento":** aparece só quando não há rendimento fora do cartão e o dinheiro disponível é zero. Num mês sem rendimento mas com saldo, mostra o valor real.
+- **Migração:** `supabase/migrations/20261102120000_momentum_meal_card.sql`, que pode correr mais do que uma vez.
+
+**Limitação:** no modo `projected`, um ordenado recebido abaixo do valor esperado conta a diferença como rendimento ainda em falta. Por isso esse modo não é o padrão.

@@ -12,6 +12,7 @@ import type {
   Installment,
   InstallmentStatus,
   Lookups,
+  MonthCoverage,
   MonthTotals,
   PaymentMethod,
   RecurringPayment,
@@ -98,6 +99,13 @@ export async function getFreeToSpend(): Promise<FreeToSpend> {
   const { data, error } = await supabase.rpc("free_to_spend");
   if (error) fail("Livre para gastar", error);
   return data as FreeToSpend;
+}
+
+export async function getMonthCoverage(): Promise<MonthCoverage> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("month_coverage");
+  if (error) fail("Cobertura do mês", error);
+  return data as MonthCoverage;
 }
 
 export async function getSpentToday(): Promise<number> {

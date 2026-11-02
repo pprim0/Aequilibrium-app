@@ -77,6 +77,8 @@ export function TransactionForm({
     setLines((current) => current.map((l, i) => (i === index ? { ...l, ...patch } : l)));
     if (patch.categoryId !== undefined) {
       const category = categoryById.get(patch.categoryId);
+      // The meal allowance goes straight to the meal card, unless a payment method says otherwise.
+      if (category?.default_account_id && !methodId) setAccountId(category.default_account_id);
       if (category?.default_to_account_id && TYPES_WITH_DESTINATION.includes(category.kind)) {
         setToAccountId(category.default_to_account_id);
       }

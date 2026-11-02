@@ -92,16 +92,17 @@ describe('cenário de referência (Excel): 25/10–24/11/2026, hoje 28/10', () =
     });
   });
 
-  test('livre para gastar = 205,60 € com todas as parcelas do Excel', async () => {
+  test('livre para gastar = 725,60 €: ordem + dinheiro − fixos por pagar − plano em falta', async () => {
     const f = await asUser(db, USER_A, TODAY, async () => (await one(db, 'select public.free_to_spend() as f')).f);
     assert.equal(f.month_key, 202611);
     assert.equal(money(f.income), 1238);
     assert.equal(money(f.expenses_paid), 112.4);
     assert.equal(money(f.debt_payments), 470);
     assert.equal(money(f.savings), 50);
+    assert.equal(money(f.available), 1125.6);
     assert.equal(money(f.pending_recurring), 300);
     assert.equal(money(f.reserved), 100);
-    assert.equal(money(f.free), 205.6);
+    assert.equal(money(f.free), 725.6);
     assert.equal(f.state, 'ok');
   });
 
@@ -156,10 +157,78 @@ describe('cenário de referência (Excel): 25/10–24/11/2026, hoje 28/10', () =
     assert.equal(rows[0].debt_phase, true);
   });
 
-  test('sem rendimento no mês: estado "no_income" em vez de um valor enganador', async () => {
+  test('mês sem rendimento mas com dinheiro nas contas: mostra o valor real', async () => {
     const f = await asUser(db, USER_A, '2026-11-26', async () =>
       (await one(db, 'select public.free_to_spend() as f')).f);
     assert.equal(f.month_key, 202612);
+    assert.equal(f.state, 'ok');
+    assert.equal(money(f.available), 1125.6);
+  });
+});
+
+describe('cartão refeição', () => {
+  let db;
+  const T = '2026-10-29';
+  before(async () => {
+    db = await createDb();
+    await setup(db, USER_A, {
+      settings: { financial_month_start_day: 25, default_account: 'Conta à ordem' },
+      accounts: [
+        { name: 'Conta à ordem', type: 'checking', opening_balance: 400, opening_date: '2026-10-25' },
+        { name: 'Poupança', type: 'savings', opening_balance: 100, opening_date: '2026-10-25' },
+        { name: 'Cartão refeição', type: 'benefit', opening_balance: 0, opening_date: '2026-10-25' },
+      ],
+      groups: [{ name: 'Rendimentos' }, { name: 'Fixas', monthly_budget: 500 }, { name: 'Dinheiro livre', monthly_budget: 250 }],
+      categories: [
+        { name: 'Subsídio de almoço', kind: 'income', group: 'Rendimentos', default_account: 'Cartão refeição' },
+        { name: 'Supermercado', kind: 'expense', group: 'Fixas', own_limit: 200, benefit_eligible: true },
+        { name: 'Refeições fora', kind: 'expense', group: 'Dinheiro livre', own_limit: 50, benefit_eligible: true },
+        { name: 'Saídas', kind: 'expense', group: 'Dinheiro livre' },
+      ],
+      payment_methods: [{ name: 'Cartão refeição', account: 'Cartão refeição' }],
+    }, T);
+    await asUser(db, USER_A, T, async () => {
+      await addTx(db, { date: T, amount: 224.4, category: 'Subsídio de almoço' });
+      await addTx(db, { date: T, amount: 34, category: 'Supermercado', method: 'Cartão refeição' });
+    });
+  });
+
+  test('o subsídio entra sozinho no cartão e fica fora do livre e do dinheiro nas contas', async () => {
+    await asUser(db, USER_A, T, async () => {
+      const b = await one(db, `select balance from public.account_balances() where name = 'Cartão refeição'`);
+      assert.equal(money(b.balance), 190.4);
+      const f = (await one(db, 'select public.free_to_spend() as f')).f;
+      assert.equal(money(f.benefit_balance), 190.4);
+      assert.equal(money(f.available), 400); // savings and the card do not count
+      assert.equal(money(f.free), 400);
+      assert.equal(money((await one(db, 'select public.money_in_accounts() as v')).v), 500);
+    });
+  });
+
+  test('chega para o resto do mês: envelopes em falta menos o que o cartão cobre', async () => {
+    const c = await asUser(db, USER_A, T, async () => (await one(db, 'select public.month_coverage() as c')).c);
+    assert.equal(money(c.budget_remaining), 716); // (500 - 34) + 250
+    assert.equal(money(c.eligible_remaining), 216); // (200 - 34) + 50
+    assert.equal(money(c.benefit_covered), 190.4); // limited by the card balance
+    assert.equal(money(c.needed_from_accounts), 525.6);
+    assert.equal(money(c.difference), -125.6);
+  });
+
+  test('sem dinheiro nem rendimento fora do cartão: pede para registar o rendimento', async () => {
+    const C = '00000000-0000-0000-0000-00000000000c';
+    await db.exec(`insert into auth.users (id, email) values ('${C}', 'c@test.local')`);
+    await setup(db, C, {
+      settings: { default_account: 'Conta à ordem' },
+      accounts: [
+        { name: 'Conta à ordem', type: 'checking', opening_date: T },
+        { name: 'Cartão refeição', type: 'benefit', opening_date: T },
+      ],
+      categories: [{ name: 'Subsídio', kind: 'income', default_account: 'Cartão refeição' }],
+    }, T);
+    const f = await asUser(db, C, T, async () => {
+      await addTx(db, { date: T, amount: 200, category: 'Subsídio' });
+      return (await one(db, 'select public.free_to_spend() as f')).f;
+    });
     assert.equal(f.state, 'no_income');
   });
 });
@@ -353,14 +422,15 @@ describe('dívidas, objetivos e estimativas', () => {
   test('livre previsto enquanto falta o ordenado esperado (modo "projected")', async () => {
     await asUser(db, USER_A, '2026-11-26', async () => {
       await addTx(db, { date: '2026-11-26', amount: 200, category: 'Subsídio de almoço' });
+      // By default the app shows what actually happened; the estimate is opt-in.
+      assert.equal((await one(db, 'select public.free_to_spend() as f')).f.state, 'ok');
+      await db.query(`update public.user_settings set free_to_spend_mode = 'projected'`);
       const f = (await one(db, 'select public.free_to_spend() as f')).f;
       assert.equal(f.month_key, 202612);
       assert.equal(f.state, 'projected');
       assert.equal(money(f.missing_expected_income), 1038);
       assert.equal(money(f.free_projected), money(money(f.free) + 1038));
       await db.query(`update public.user_settings set free_to_spend_mode = 'actual'`);
-      assert.equal((await one(db, 'select public.free_to_spend() as f')).f.state, 'ok');
-      await db.query(`update public.user_settings set free_to_spend_mode = 'projected'`);
     });
   });
 

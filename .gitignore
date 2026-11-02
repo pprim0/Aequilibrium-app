@@ -44,3 +44,5 @@ yarn-error.*
 # Momentum: personal data stays out of the (public) repository
 supabase/seed/*.local.sql
 supabase/tests/local/
+
+supabase/dev/

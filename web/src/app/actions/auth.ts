@@ -18,7 +18,7 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   if (!isSupabaseConfigured) return { error: t.auth.missingConfig };
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(credentials(formData));
-  if (error) return { error: t.auth.invalidCredentials };
+  if (error) return { error: error.code === "email_not_confirmed" ? t.auth.emailNotConfirmed : t.auth.invalidCredentials };
   redirect("/");
 }
 
